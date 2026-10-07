@@ -13,14 +13,14 @@ SELECT TOP (100)
     dd.Contents AS [შინაარსი],
 
     dd.PhoneNumber AS [ტელეფონის ნომერი],
+    dd.BranchName AS [ფილიალი],
+    d.Notes AS [შენიშვნა],
 
     CASE d.IsSent
         WHEN 1 THEN N'კი'
         WHEN 0 THEN N'არა'
         ELSE N'უცნობია'
     END AS [გაგზავნილია],
-
-    d.Notes AS [შენიშვნა],
 
     d.CreateDate AS [შექმნის თარიღი],
     received.RegistrationDate AS [მიღების თარიღი],
@@ -31,6 +31,10 @@ SELECT TOP (100)
         WHEN 0 THEN N'არა'
         ELSE N'უცნობია'
     END AS [წაკითხულია],
+
+    lastMovement.MovementTypeID AS [ბოლო ოპერაციის ტიპის ID],
+    lastMovement.CreateDate AS [ბოლო ოპერაციის თარიღი],
+    lastMovement.Comment AS [ბოლო ოპერაციის კომენტარი],
 
     CASE
         WHEN EXISTS (
@@ -45,6 +49,7 @@ SELECT TOP (100)
 
 FROM dbo.Documents AS d
 
+-- ნინოსთან ბოლო აქტიური, გაუუქმებელი მოძრაობა
 CROSS APPLY (
     SELECT TOP (1)
         m.RegistrationDate,
@@ -68,6 +73,18 @@ CROSS APPLY (
 
     ORDER BY m.CreateDate DESC, m.ID DESC
 ) AS received
+
+-- დოკუმენტის ბოლო აქტიური მოძრაობა ყველა მიმღებს შორის
+OUTER APPLY (
+    SELECT TOP (1)
+        m.MovementTypeID,
+        m.CreateDate,
+        m.Comment
+    FROM dbo.Movements AS m
+    WHERE m.ThingID = d.ID
+        AND m.IsActive = 1
+    ORDER BY m.CreateDate DESC, m.ID DESC
+) AS lastMovement
 
 LEFT JOIN dbo.DocumentDetails AS dd
     ON dd.ID = d.ID
