@@ -1,18 +1,65 @@
-SELECT TOP (1000) [ID]
-      ,[UserName]
-      ,[Password]
-      ,[FullName]
-      ,[Gender]
-      ,[PrivateNumber]
-      ,[EMail]
-      ,[IsActive]
-      ,[CreateDate]
-      ,[CreatedBy]
-      ,[LastModifyDate]
-      ,[LastModifiedBy]
-      ,[Version]
-      ,[IsFirstPassword]
-      ,[IsChancelleryAccount]
-  FROM [eMembership].[users].[Users]
- 
-UserName
+using System.Data;
+using Dapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+
+namespace API.Controllers;
+
+[ApiController]
+[Route("api/users/all")]
+public class AllUsersController : ControllerBase
+{
+    private readonly string _connectionString;
+
+    public AllUsersController(IConfiguration configuration)
+    {
+        _connectionString =
+            configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException(
+                "DefaultConnection არ არის მითითებული.");
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<List<AllUsersResponse>>> GetAll(
+        CancellationToken cancellationToken)
+    {
+        await using var connection =
+            new SqlConnection(_connectionString);
+
+        await connection.OpenAsync(cancellationToken);
+
+        const string sql = """
+            SELECT
+                ID AS UserId,
+                UserName,
+                FullName,
+                Gender,
+                PrivateNumber,
+                EMail,
+                IsActive
+            FROM [users].[Users]
+            ORDER BY ID;
+            """;
+
+        var command = new CommandDefinition(
+            commandText: sql,
+            commandType: CommandType.Text,
+            cancellationToken: cancellationToken);
+
+        var users = await connection
+            .QueryAsync<AllUsersResponse>(command);
+
+        return Ok(users.ToList());
+    }
+}
+
+public class AllUsersResponse
+{
+    public int UserId { get; set; }
+    public string? UserName { get; set; }
+    public string? FullName { get; set; }
+    public string? Gender { get; set; }
+    public string? PrivateNumber { get; set; }
+    public string? EMail { get; set; }
+    public bool? IsActive { get; set; }
+}
