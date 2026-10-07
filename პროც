@@ -21,10 +21,7 @@ SELECT TOP (100)
 
     CAST(NULL AS nvarchar(500)) AS [კლიენტი],
 
-    ISNULL(
-        dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
-        dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)
-    ) AS [ავტორი],
+    ISNULL(authorUser.FullName, senderUser.FullName) AS [ავტორი],
 
     bd.DocumentNumber AS [საფუძველი],
 
@@ -46,6 +43,22 @@ LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() AS dd
 
 LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() AS bd
     ON bd.ID = d.BaseID
+
+-- დოკუმენტის ავტორის დანიშვნა
+LEFT JOIN eMembership.orgs.UserAppointments AS authorAppointment
+    ON authorAppointment.ID = d.AuthorID
+
+-- ავტორის სახელი
+LEFT JOIN eMembership.users.Users AS authorUser
+    ON authorUser.ID = authorAppointment.UserID
+
+-- გამომგზავნის დანიშვნა
+LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
+    ON senderAppointment.ID = dd.FromID
+
+-- გამომგზავნის სახელი
+LEFT JOIN eMembership.users.Users AS senderUser
+    ON senderUser.ID = senderAppointment.UserID
 
 WHERE ua.UserID = @UserID
     AND ua.IsActive = 1
