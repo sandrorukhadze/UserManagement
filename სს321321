@@ -1,9 +1,22 @@
-      Error Number:18456,State:1,Class:14
-info: Microsoft.Hosting.Lifetime[0]
-      Application is shutting down...
-PS C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api> dotnet user-secrets list
-Could not find the global property 'UserSecretsId' in MSBuild project 'C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api\eMembership.Api.csproj'. Ensure this property is set in the project or use the '--id' command line option.
-PS C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api> cd ..
-PS C:\Users\srukhadze\source\repos\eMembership\src> dotnet user-secrets list
-Could not find a MSBuild project file in 'C:\Users\srukhadze\source\repos\eMembership\src'. Specify which project to use with the --project option. Use --file option for file-based apps.
-PS C:\Users\srukhadze\source\repos\eMembership\src>
+{
+  "ConnectionStrings": {
+    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;",
+    "Document": "Server=10.0.33.33;Database=eDocument;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
+  },
+
+  "Jwt": {
+    "Key": "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MINIMUM_32_CHARACTERS",
+    "Issuer": "eMembership.Api",
+    "Audience": "eMembership.Client"
+  },
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+
+  "AllowedHosts": "*"
+}
