@@ -1,19 +1,16 @@
-USE [eMembership];
-GO
-
-SELECT
-    s.name AS SchemaName,
-    t.name AS TableName,
-    c.name AS ColumnName,
-    ty.name AS DataType
-FROM sys.tables AS t
-INNER JOIN sys.schemas AS s
-    ON s.schema_id = t.schema_id
-INNER JOIN sys.columns AS c
-    ON c.object_id = t.object_id
-INNER JOIN sys.types AS ty
-    ON ty.user_type_id = c.user_type_id
-WHERE
-    s.name = 'orgs'
-    AND t.name LIKE '%OrganizationStructure%'
-ORDER BY t.name, c.column_id;
+SchemaName	TableName	ColumnName	DataType
+orgs	OrganizationStructures	ID	uniqueidentifier
+orgs	OrganizationStructures	Name	nvarchar
+orgs	OrganizationStructures	Code	nvarchar
+orgs	OrganizationStructures	OrganizationTypeID	uniqueidentifier
+orgs	OrganizationStructures	ParentID	uniqueidentifier
+orgs	OrganizationStructures	RegionID	uniqueidentifier
+orgs	OrganizationStructures	HasOffDay	bit
+orgs	OrganizationStructures	IsActive	bit
+orgs	OrganizationStructures	CreateDate	datetime
+orgs	OrganizationStructures	CreatedBy	uniqueidentifier
+orgs	OrganizationStructures	LastModifyDate	datetime
+orgs	OrganizationStructures	LastModifiedBy	uniqueidentifier
+orgs	OrganizationStructures	Version	timestamp
+orgs	OrganizationStructures	BranchID	uniqueidentifier
+orgs	OrganizationStructures	NameEn	nvarchar
