@@ -1,101 +1,35 @@
-// ======================================================
-// 1. Application/Interfaces/IUserRepository.cs
-// დაამატე ინტერფეისის შიგნით.
-// თუ ეს მეთოდი უკვე გაქვს, მეორედ არ დაამატო.
-// ======================================================
-
-Task<UserInfoDto?> GetByUserNameAsync(
+// IUserRepository.cs — დაბრუნების ტიპი:
+Task<List<UserInfoDto>> GetByUserNameAsync(
     string userName,
     CancellationToken cancellationToken = default);
 
-
-// ======================================================
-// 2. Infrastructure/Repositories/UserRepository.cs
-// დაამატე კლასის შიგნით.
-// თუ ეს მეთოდი უკვე გაქვს, ჩაანაცვლე ამ ვერსიით.
-// ======================================================
-
-public async Task<UserInfoDto?> GetByUserNameAsync(
+// UserService.cs — მეთოდის სათაური:
+public Task<List<UserInfoDto>> GetByUserNameAsync(
     string userName,
     CancellationToken cancellationToken = default)
-{
-    // ვუკავშირდებით იმავე ბაზას.
-    await using var connection =
-        new SqlConnection(_connectionString);
 
-    await connection.OpenAsync(cancellationToken);
-
-    // ვეძებთ UserName-ის ზუსტ დამთხვევას.
-    const string sql = """
-        SELECT TOP (1)
-            ID AS UserId,
-            UserName,
-            FullName,
-            Gender,
-            PrivateNumber,
-            EMail,
-            IsActive
-        FROM [users].[Users]
-        WHERE UserName = @UserName
-        ORDER BY ID;
-        """;
-
-    // ფრონტიდან მიღებული სახელი გადაეცემა SQL პარამეტრად.
-    var command = new CommandDefinition(
-        commandText: sql,
-        parameters: new { UserName = userName },
-        commandType: CommandType.Text,
-        cancellationToken: cancellationToken);
-
-    // თუ მომხმარებელი არ არსებობს, დაბრუნდება null.
-    return await connection
-        .QuerySingleOrDefaultAsync<UserInfoDto>(command);
-}
-
-
-// ======================================================
-// 3. Application/Services/UserService.cs
-// დაამატე კლასის შიგნით, ან ჩაანაცვლე არსებული იგივე მეთოდი.
-// ======================================================
-
-public Task<UserInfoDto?> GetByUserNameAsync(
+// UserRepository.cs — მეთოდის სათაური:
+public async Task<List<UserInfoDto>> GetByUserNameAsync(
     string userName,
     CancellationToken cancellationToken = default)
-{
-    return _users.GetByUserNameAsync(
-        userName.Trim(),
-        cancellationToken);
-}
 
+// UserRepository.cs — SQL-ში:
+// SELECT TOP (1) შეცვალე SELECT-ით.
+// WHERE პირობა შეცვალე:
+WHERE UserName LIKE N'%' + @UserName + N'%'
 
-// ======================================================
-// 4. API/Controllers/UsersController.cs
-// დაამატე კლასის შიგნით, ან ჩაანაცვლე არსებული იგივე მეთოდი.
-// ======================================================
+// UserRepository.cs — ბოლო სტრიქონები:
+var users = await connection.QueryAsync<UserInfoDto>(command);
+return users.ToList();
 
-[HttpGet("by-username")]
-public async Task<ActionResult<UserInfoDto>> GetByUserName(
+// UsersController.cs — მეთოდის სათაური:
+public async Task<ActionResult<List<UserInfoDto>>> GetByUserName(
     [FromQuery] string? userName,
     CancellationToken cancellationToken)
-{
-    // სახელი აუცილებელია.
-    if (string.IsNullOrWhiteSpace(userName))
-        return BadRequest("userName აუცილებელია.");
 
-    var user = await _userService.GetByUserNameAsync(
-        userName,
-        cancellationToken);
+// UsersController.cs — Service-ის გამოძახებიდან ბოლომდე:
+var users = await _userService.GetByUserNameAsync(
+    userName,
+    cancellationToken);
 
-    if (user is null)
-        return NotFound("მომხმარებელი ვერ მოიძებნა.");
-
-    return Ok(user);
-}
-
-
-// ======================================================
-// 5. Application/DTOs/UserInfoDto.cs
-// UserId აუცილებლად დატოვე Guid ტიპით.
-// ======================================================
-
-// public Guid UserId { get; set; }
+return Ok(users);
