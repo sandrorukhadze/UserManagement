@@ -7,3 +7,5 @@ SELECT
     LEN([Password]) AS PasswordLength
 FROM [eMembership].[users].[Users]
 WHERE [UserName] = N'ნინო კიკაბიძე';
+
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	069494bc2386f0e7cef27cd1fbcc38e6	1	13	32
