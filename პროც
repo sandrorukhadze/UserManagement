@@ -1,16 +1,11 @@
 USE [eDocument];
 GO
 
-DECLARE @appoID UNIQUEIDENTIFIER =
-    'D2B5BAF3-C122-486F-9974-E26B4533B237';
-
-DECLARE @DepID UNIQUEIDENTIFIER =
-    'C46E484A-5258-4226-B981-0AF22B7D0D2B';
-
-DECLARE @TypeID INT = 0;
+DECLARE @UserID UNIQUEIDENTIFIER =
+    '77CBA770-018B-4684-808B-EF3409385ED4';
 
 SELECT TOP (100)
-    ISNULL(d.DocumentNumber, '') AS [ნომერი],
+    d.DocumentNumber AS [ნომერი],
 
     dbo.getdoctype(
         d.DocumentTypeID,
@@ -31,14 +26,18 @@ SELECT TOP (100)
         dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)
     ) AS [ავტორი],
 
-    ISNULL(bd.DocumentNumber, '') AS [საფუძველი],
-
+    bd.DocumentNumber AS [საფუძველი],
     dd.Content AS [შინაარსი]
 
-FROM dbo.udf_ActiveDocuments_All2fortest(
-    @appoID,
-    @DepID,
-    @TypeID
+FROM eMembership.orgs.UserAppointments AS ua
+
+INNER JOIN eMembership.orgs.Positions AS p
+    ON p.ID = ua.PositionID
+
+CROSS APPLY dbo.udf_ActiveDocuments_All2fortest(
+    ua.ID,
+    p.OrganizationStructureID,
+    0
 ) AS d
 
 LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() AS dd
@@ -46,5 +45,13 @@ LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() AS dd
 
 LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() AS bd
     ON bd.ID = d.BaseID
+
+WHERE ua.UserID = @UserID
+    AND ua.IsActive = 1
+    AND ua.BeginDate <= CONVERT(date, GETDATE())
+    AND (
+        ua.FinishDate IS NULL
+        OR ua.FinishDate >= CONVERT(date, GETDATE())
+    )
 
 ORDER BY d.CreateDate DESC, d.ID;
