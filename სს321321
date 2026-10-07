@@ -1,135 +1,30 @@
-// ======================================================
-// 1. Application/DTOs/UserInfoDto.cs
-// შექმენი ეს ფაილი. თუ უკვე გაქვს, მეორედ აღარ შექმნა.
-// ======================================================
+    Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\UserManagement\API
+fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      System.Data.DataException: Error parsing column 0 (UserId=e91a26b0-a5c8-4c29-adbc-000303db38e2 - Guid)
+       ---> System.InvalidCastException: Object must implement IConvertible.
+         at System.Convert.ChangeType(Object value, Type conversionType, IFormatProvider provider)
+         at Deserialize714f3704-3aa9-455a-a8e1-ad71299a57e9(DbDataReader)
+         --- End of inner exception stack trace ---
+         at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 4094
+         at Deserialize714f3704-3aa9-455a-a8e1-ad71299a57e9(DbDataReader)
+         at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+         at Infrastructure.Repositories.UserRepository.GetAllAsync(CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 79
+         at Infrastructure.Repositories.UserRepository.GetAllAsync(CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 82
+         at API.Controllers.UsersController.GetAll(CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\API\Controllers\UsersController.cs:line 53
+         at lambda_method5(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+         at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
 
-namespace Application.DTOs;
-
-public class UserInfoDto
-{
-    public int UserId { get; set; }
-    public string? UserName { get; set; }
-    public string? FullName { get; set; }
-    public string? Gender { get; set; }
-    public string? PrivateNumber { get; set; }
-    public string? EMail { get; set; }
-    public bool? IsActive { get; set; }
-}
-
-
-// ======================================================
-// 2. Application/Interfaces/IUserRepository.cs
-// ======================================================
-
-// ფაილის თავში დაამატე, თუ არ გაქვს:
-using Application.DTOs;
-
-// ეს მეთოდი ჩასვი არსებული IUserRepository-ის შიგნით.
-// სხვა მეთოდები დატოვე.
-Task<List<UserInfoDto>> GetAllAsync(
-    CancellationToken cancellationToken = default);
-
-
-// ======================================================
-// 3. Infrastructure/Repositories/UserRepository.cs
-// ======================================================
-
-// ფაილის თავში დაამატე საჭირო using-ები.
-// რაც უკვე გაქვს, მეორედ აღარ დაამატო.
-using System.Data;
-using Application.DTOs;
-using Dapper;
-using Microsoft.Data.SqlClient;
-
-// ეს მეთოდი ჩასვი არსებული UserRepository კლასის შიგნით.
-// არსებულ _connectionString-ს და კონსტრუქტორს გამოიყენებს.
-public async Task<List<UserInfoDto>> GetAllAsync(
-    CancellationToken cancellationToken = default)
-{
-    // ვქმნით კავშირს შენს ბაზასთან.
-    await using var connection =
-        new SqlConnection(_connectionString);
-
-    // ვხსნით კავშირს.
-    await connection.OpenAsync(cancellationToken);
-
-    // პირდაპირ SELECT — პროცედურის გარეშე.
-    // Password არ გამოგვაქვს.
-    const string sql = """
-        SELECT
-            ID AS UserId,
-            UserName,
-            FullName,
-            Gender,
-            PrivateNumber,
-            EMail,
-            IsActive
-        FROM [users].[Users]
-        ORDER BY ID;
-        """;
-
-    // ვამზადებთ SQL მოთხოვნას.
-    var command = new CommandDefinition(
-        commandText: sql,
-        commandType: CommandType.Text,
-        cancellationToken: cancellationToken);
-
-    // Dapper SQL-ის შედეგს DTO ობიექტებად გარდაქმნის.
-    var users = await connection.QueryAsync<UserInfoDto>(command);
-
-    // ვაბრუნებთ მომხმარებლების სიას.
-    return users.ToList();
-}
-
-
-// ======================================================
-// 4. Application/Services/UserService.cs
-// ======================================================
-
-// ფაილის თავში დაამატე, თუ არ გაქვს:
-using Application.DTOs;
-
-// ეს მეთოდი ჩასვი არსებული UserService კლასის შიგნით.
-public Task<List<UserInfoDto>> GetAllAsync(
-    CancellationToken cancellationToken = default)
-{
-    // Service მომხმარებლების წამოღებას Repository-ს ავალებს.
-    return _users.GetAllAsync(cancellationToken);
-}
-
-
-// ======================================================
-// 5. API/Controllers/UsersController.cs
-// ======================================================
-
-// ფაილის თავში დაამატე, თუ არ გაქვს:
-using Application.DTOs;
-using Microsoft.AspNetCore.Mvc;
-
-// ეს მეთოდი ჩასვი არსებული UsersController კლასის შიგნით.
-// Controller-ზე არსებული [Route("api/users")] დატოვე.
-[HttpGet("all")]
-public async Task<ActionResult<List<UserInfoDto>>> GetAll(
-    CancellationToken cancellationToken)
-{
-    // Service-დან ვიღებთ მომხმარებლების სიას.
-    var users = await _userService.GetAllAsync(cancellationToken);
-
-    // ფრონტს ვუბრუნებთ 200 OK-ს და JSON სიას.
-    return Ok(users);
-}
-
-
-// ======================================================
-// 6. Program.cs და appsettings.json
-// ======================================================
-
-// აქ ცვლილება არ გჭირდება.
-// Repository, Service და connection string უკვე გაქვს.
-
-// თუ წინა ერთფაილიანი AllUsersController.cs შექმენი,
-// ის წაშალე, რომ ერთი მისამართი ორჯერ არ დარეგისტრირდეს.
-
-// გადატვირთე API.
-// Swagger-ში გამოჩნდება: GET /api/users/all
-// პარამეტრები არ სჭირდება — ყველა მომხმარებელს აბრუნებს.
