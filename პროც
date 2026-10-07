@@ -1,137 +1,218 @@
-SELECT
-    [ID],
-    '[' + [UserName] + ']' AS UserNameVisible,
-    [Password],
-    [PrivateNumber],
-    LEN([UserName]) AS UserNameLength,
-    DATALENGTH([UserName]) AS UserNameBytes
-FROM [eMembership].[users].[Users]
-WHERE [UserName] = N'ნინო კიკაბიძე';
+fo: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
 
-SELECT
-    COLUMN_NAME,
-    DATA_TYPE,
-    CHARACTER_MAXIMUM_LENGTH
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'users'
-  AND TABLE_NAME = 'Users'
-  AND COLUMN_NAME IN ('UserName', 'Password');
+==========================================
+USER    : [ნინო კიკაბიძე]
+LENGTH  : 13
+DB HASH : 069494bc2386f0e7cef27cd1fbcc38e6
+==========================================
+password + username / UTF8
+    290142a4a32032327da03f1627153a55
+password + username / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+username + password / UTF8
+    e3f49c5ff27db2966aaa779c585d5224
+username + password / UTF16-LE
+    fb3711bbc13b49811df1de22438830dc
+username + password / UTF16-BE
+    e0b7bfd24640ac63dde7820489e675c9
+username + password / ASCII
+    8145fb3d00babca7267b13a6c9441c72
+username + password / UTF32
+    9e7aaa69d07a8fad2115350e5829dd3f
+password + username.Trim / UTF8
+    290142a4a32032327da03f1627153a55
+password + username.Trim / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username.Trim / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username.Trim / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.Trim / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+username.Trim + password / UTF8
+    e3f49c5ff27db2966aaa779c585d5224
+username.Trim + password / UTF16-LE
+    fb3711bbc13b49811df1de22438830dc
+username.Trim + password / UTF16-BE
+    e0b7bfd24640ac63dde7820489e675c9
+username.Trim + password / ASCII
+    8145fb3d00babca7267b13a6c9441c72
+username.Trim + password / UTF32
+    9e7aaa69d07a8fad2115350e5829dd3f
+password + username.lower / UTF8
+    290142a4a32032327da03f1627153a55
+password + username.lower / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username.lower / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username.lower / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.lower / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+password + username.upper / UTF8
+    2771cd0b50b60a986bff2a52f8e2d081
+password + username.upper / UTF16-LE
+    5bcde2867a4c22f7ccf9fda904e876bd
+password + username.upper / UTF16-BE
+    8f0d28d55fe7a0b04f11d0a88e8f682d
+password + username.upper / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.upper / UTF32
+    773d93b6ba9ca6cc43569ad60a83915f
+password.Trim + username.Trim / UTF8
+    290142a4a32032327da03f1627153a55
+password.Trim + username.Trim / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password.Trim + username.Trim / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password.Trim + username.Trim / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password.Trim + username.Trim / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+password:username / UTF8
+    39d339286312482ab9d2ad31fcd30b52
+password:username / UTF16-LE
+    3fc19ac99890fce070cdb373e7ebf37c
+password:username / UTF16-BE
+    433906fca0087f7398cbfaaa39322fa9
+password:username / ASCII
+    517aada7361a24aa9a664795ef5bd61b
+password:username / UTF32
+    282e573d33e0720deffe009e44d86b43
+username:password / UTF8
+    b2aeb5c3d021cbf808c861aac4f5ec05
+username:password / UTF16-LE
+    d32a108c6f2cc2b5fc93eec80d444d04
+username:password / UTF16-BE
+    5ab6a4f680db43e3befae10e19efc844
+username:password / ASCII
+    572f25e702989010dc5c664357a7509e
+username:password / UTF32
+    605e943af8ff6884e33de1df51532722
+
+NO MATCH FOUND
+==========================================
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+
+==========================================
+USER    : [ნინო კიკაბიძე]
+LENGTH  : 13
+DB HASH : 069494bc2386f0e7cef27cd1fbcc38e6
+==========================================
+password + username / UTF8
+    290142a4a32032327da03f1627153a55
+password + username / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+username + password / UTF8
+    e3f49c5ff27db2966aaa779c585d5224
+username + password / UTF16-LE
+    fb3711bbc13b49811df1de22438830dc
+username + password / UTF16-BE
+    e0b7bfd24640ac63dde7820489e675c9
+username + password / ASCII
+    8145fb3d00babca7267b13a6c9441c72
+username + password / UTF32
+    9e7aaa69d07a8fad2115350e5829dd3f
+password + username.Trim / UTF8
+    290142a4a32032327da03f1627153a55
+password + username.Trim / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username.Trim / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username.Trim / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.Trim / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+username.Trim + password / UTF8
+    e3f49c5ff27db2966aaa779c585d5224
+username.Trim + password / UTF16-LE
+    fb3711bbc13b49811df1de22438830dc
+username.Trim + password / UTF16-BE
+    e0b7bfd24640ac63dde7820489e675c9
+username.Trim + password / ASCII
+    8145fb3d00babca7267b13a6c9441c72
+username.Trim + password / UTF32
+    9e7aaa69d07a8fad2115350e5829dd3f
+password + username.lower / UTF8
+    290142a4a32032327da03f1627153a55
+password + username.lower / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password + username.lower / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password + username.lower / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.lower / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+password + username.upper / UTF8
+    2771cd0b50b60a986bff2a52f8e2d081
+password + username.upper / UTF16-LE
+    5bcde2867a4c22f7ccf9fda904e876bd
+password + username.upper / UTF16-BE
+    8f0d28d55fe7a0b04f11d0a88e8f682d
+password + username.upper / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password + username.upper / UTF32
+    773d93b6ba9ca6cc43569ad60a83915f
+password.Trim + username.Trim / UTF8
+    290142a4a32032327da03f1627153a55
+password.Trim + username.Trim / UTF16-LE
+    47defd68397e3338bbe49cc80a39276e
+password.Trim + username.Trim / UTF16-BE
+    d0fa7d99b274812f3b03ccf671fd69b6
+password.Trim + username.Trim / ASCII
+    fe55d0103cf2317b602b2ce37843c053
+password.Trim + username.Trim / UTF32
+    7a0bb6d6e06fa326e9dad5b4705722b8
+password:username / UTF8
+    39d339286312482ab9d2ad31fcd30b52
+password:username / UTF16-LE
+    3fc19ac99890fce070cdb373e7ebf37c
+password:username / UTF16-BE
+    433906fca0087f7398cbfaaa39322fa9
+password:username / ASCII
+    517aada7361a24aa9a664795ef5bd61b
+password:username / UTF32
+    282e573d33e0720deffe009e44d86b43
+username:password / UTF8
+    b2aeb5c3d021cbf808c861aac4f5ec05
+username:password / UTF16-LE
+    d32a108c6f2cc2b5fc93eec80d444d04
+username:password / UTF16-BE
+    5ab6a4f680db43e3befae10e19efc844
+username:password / ASCII
+    572f25e702989010dc5c664357a7509e
+username:password / UTF32
+    605e943af8ff6884e33de1df51532722
+
+NO MATCH FOUND
+==========================================
 
 
-using System.Security.Cryptography;
-using System.Text;
-using eMembership.Application.Abstractions;
 
-namespace eMembership.Infrastructure.Authentication;
-
-public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
-{
-    public bool Verify(
-        string plainPassword,
-        string userName,
-        string passwordHash)
-    {
-        var dbHash = passwordHash.Trim();
-
-        var values = new Dictionary<string, string>
-        {
-            // როგორც შენ თქვი
-            ["password + username"] =
-                plainPassword + userName,
-
-            // reverse order
-            ["username + password"] =
-                userName + plainPassword,
-
-            // Trim
-            ["password + username.Trim"] =
-                plainPassword + userName.Trim(),
-
-            ["username.Trim + password"] =
-                userName.Trim() + plainPassword,
-
-            // lowercase
-            ["password + username.lower"] =
-                plainPassword + userName.Trim().ToLowerInvariant(),
-
-            // uppercase
-            ["password + username.upper"] =
-                plainPassword + userName.Trim().ToUpperInvariant(),
-
-            // ორივეს trim
-            ["password.Trim + username.Trim"] =
-                plainPassword.Trim() + userName.Trim(),
-
-            // separator-იანი ვარიანტები
-            ["password:username"] =
-                plainPassword + ":" + userName.Trim(),
-
-            ["username:password"] =
-                userName.Trim() + ":" + plainPassword
-        };
-
-        var encodings = new Dictionary<string, Encoding>
-        {
-            ["UTF8"] = Encoding.UTF8,
-            ["UTF16-LE"] = Encoding.Unicode,
-            ["UTF16-BE"] = Encoding.BigEndianUnicode,
-            ["ASCII"] = Encoding.ASCII,
-            ["UTF32"] = Encoding.UTF32
-        };
-
-        Console.WriteLine();
-        Console.WriteLine("==========================================");
-        Console.WriteLine($"USER    : [{userName}]");
-        Console.WriteLine($"LENGTH  : {userName.Length}");
-        Console.WriteLine($"DB HASH : {dbHash}");
-        Console.WriteLine("==========================================");
-
-        foreach (var value in values)
-        {
-            foreach (var encoding in encodings)
-            {
-                var calculatedHash = CreateHash(
-                    value.Value,
-                    encoding.Value);
-
-                Console.WriteLine(
-                    $"{value.Key} / {encoding.Key}");
-                Console.WriteLine(
-                    $"    {calculatedHash}");
-
-                if (string.Equals(
-                        calculatedHash,
-                        dbHash,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("******** MATCH FOUND ********");
-                    Console.WriteLine($"VALUE    = {value.Key}");
-                    Console.WriteLine($"ENCODING = {encoding.Key}");
-                    Console.WriteLine("*****************************");
-
-                    return true;
-                }
-            }
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("NO MATCH FOUND");
-        Console.WriteLine("==========================================");
-
-        return false;
-    }
-
-    private static string CreateHash(
-        string value,
-        Encoding encoding)
-    {
-        var bytes = encoding.GetBytes(value);
-
-        var hashBytes = MD5.HashData(bytes);
-
-        return Convert
-            .ToHexString(hashBytes)
-            .ToLowerInvariant();
-    }
-}
+77CBA770-018B-4684-808B-EF3409385ED4	[ნინო კიკაბიძე]	069494bc2386f0e7cef27cd1fbcc38e6	01017029954	13	26
