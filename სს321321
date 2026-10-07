@@ -17,3 +17,1035 @@ SELECT TOP (1000) [ID]
 
 
 E91A26B0-A5C8-4C29-ADBC-000303DB38E2	ნინო ფირცხელანი	ef6898de09bc80ca5c7c0fcf427d658d	ნინო ფირცხელანი	0	01008022640		1	2012-10-12 19:15:58.303	240A8576-9630-4614-B483-916046CDF7A6	2016-07-11 14:16:50.460	E91A26B0-A5C8-4C29-ADBC-000303DB38E2	0x0000000000534089	0	NULL
+
+
+
+USE [eDocument]
+GO
+/****** Object:  StoredProcedure [dbo].[ust_Shemosuli2ForTest]    Script Date: 10/7/2026 6:12:33 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[ust_Shemosuli2ForTest]
+    @appoID UNIQUEIDENTIFIER ,
+    @userID UNIQUEIDENTIFIER ,
+    @TypeID INT ,
+    @OrgID UNIQUEIDENTIFIER ,
+    @DepID UNIQUEIDENTIFIER ,
+    @LoadingStage BIT ,
+    @Done BIT ,
+    @IsSenior BIT ,
+    @StartRowIndex INT ,
+    @LastRowIndex INT
+AS 
+    BEGIN
+
+	-- Andro Add Year
+	DECLARE @StartDateValue DATETIME;
+	DECLARE @EndDateValue DATETIME;
+	DECLARE @SelectedYear INT;
+	SET @SelectedYear = (SELECT TOP (1) SelectedYear FROM [dbo].[UsersSelectedDocuments] WITH (NOLOCK) WHERE AppointmentID = @appoID);
+	IF @SelectedYear IS NULL OR @SelectedYear = 0 OR @SelectedYear = 1
+	BEGIN
+		SET @StartDateValue = CONVERT(datetime, '2012-01-01') -- Edoc Start Date
+		SET @EndDateValue = SYSDATETIME() -- End Date Now
+	END
+	ELSE
+	BEGIN
+			IF @SelectedYear = 2
+			BEGIN
+			SET @StartDateValue = CONVERT(datetime, '2025-01-01')
+			SET @EndDateValue = SYSDATETIME()
+			END
+			ELSE
+			BEGIN
+		SET @StartDateValue = CONVERT(datetime, convert(varchar(4), @SelectedYear))
+		SET @EndDateValue = CONVERT(datetime, convert(varchar(4), @SelectedYear + 1))
+			END
+	END
+
+	IF @SelectedYear = 1
+	BEGIN
+	        SELECT  ID ,
+                DocumentNumber ,
+                CreateDate ,
+                BaseDocument ,
+                ServiceName ,
+                CreatedByID ,
+                Term ,
+                DocumentTypeID ,
+                documentType ,
+                CanEdit ,
+                CanEditDocument ,
+                CanDelete ,
+                ReportType ,
+                lastEditDate ,
+                specdate ,
+                Status ,
+                LastOperation ,
+                movedimage ,
+                isUnReaded ,
+                Client ,
+                leftedDaysString ,
+                isCarrefull ,
+                withAttachment ,
+                HasNote ,
+                needsAttachment ,
+                isExecutedByExpert ,
+                isPrinted ,
+                isUnPrinted ,
+                CreatedBy ,
+                EditPath ,
+                SignaturedBy ,
+                BranchName ,
+                CountOfAddItems ,
+                Content ,
+                IsFromCourier ,
+                [RowCount]
+        FROM    ( SELECT    d.ID ,
+                            ISNULL(d.DocumentNumber, '') AS DocumentNumber ,
+                            d.CreateDate ,
+                            ISNULL(bd.DocumentNumber, '') AS BaseDocument ,
+                            CASE WHEN ISNULL(dd.serviceid, bd.ServiceID) = '471BA814-0D68-4F4B-9FFF-B18446E1F7F4'
+                                 THEN 'Red'
+                                 ELSE 'Black'
+                            END AS ServiceName ,
+                            CASE WHEN d.DocumentTypeID IN ( 11, 12 )
+                                 THEN d.AuthorID
+                                 ELSE dd.FromID
+                            END AS CreatedByID ,
+                            ISNULL(dd.Term, 0) AS Term ,
+                            d.DocumentTypeID ,
+                            dbo.getdoctype(d.DocumentTypeID, dd.DetailTypeID,
+                                           d.RequestType, DD.InnerType,
+                                           DD.LetterType, d.IsTechReport, d.IsAutoCrim, bd.IsAutoCrim, d.InnerSubTypeID) AS documentType ,
+                            CASE WHEN d.CreatedBy != @userID THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 5
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 5
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
+                                 THEN 'none'
+                                 WHEN ( d.CreatedBy = @userID )
+                                      AND ( d.DocumentTypeID != 11
+                                            OR d.AuthorID = @appoID
+                                          )
+                                      AND d.DocumentTypeID != 2
+                                      AND d.DocumentTypeID != 3
+                                      AND d.DocumentTypeID != 14
+                                      AND d.DocumentTypeID != 5
+                                      AND ( d.IsSignatured = 0
+                                            OR d.IsSignatured IS NULL
+                                          )
+                                      AND ( ml.ID IS NULL
+                                            OR ml.canceled = 1
+                                            OR ml.ToID = @appoID
+                                            AND ml.ToID = d.AuthorID --Created Paata
+                                            AND d.DocumentTypeID != 6
+                                            OR d.ExpTypeID = 3
+                                            AND ( ms.ID IS NULL
+                                                  OR ms.Canceled = 1
+                                                )
+                                            AND ( mm.ID IS NULL
+                                                  OR mm.canceled = 1
+                                                )
+                                          ) THEN 'inline'
+                                 ELSE 'none'
+                            END AS CanEdit ,
+                            CASE
+							WHEN d.IsAutoCrim = 1 AND EXISTS ( SELECT 1
+											FROM [dbo].[Conclusions] WITH ( NOLOCK )
+											WHERE DocumentID = d.ID AND IsActive = 1
+										) THEN CONVERT(BIT, 0)
+							WHEN d.CreatedBy = @userID
+                                      AND ( ( d.DocumentTypeID = 2
+                                              AND ( ml.ID IS NULL
+                                                    OR ml.canceled = 1
+                                                    OR ml.MovementTypeID = 2
+                                                  )
+                                            )
+                                            OR ( d.DocumentTypeID IN ( 3, 14 )
+                                                 AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                               )
+                                          ) THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS CanEditDocument ,
+                            CASE WHEN d.CreatedBy != @userID THEN 'none'
+                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                 THEN 'inline'
+                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
+                                 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 1 THEN 'none'
+                                 WHEN ( ( d.CreatedBy = @userID )
+                                        AND ( d.DocumentTypeID != 11
+                                              OR d.AuthorID = @appoID --Created Paata
+                                              
+                                            )
+                                        AND ( d.IsSignatured = 0
+                                              OR d.IsSignatured IS NULL
+                                            )
+                                        AND ( ml.ID IS NULL
+                                              OR ml.canceled = 1
+                                              OR ml.ToID = @appoID
+                                              AND ml.ToID = d.AuthorID --Created Paata
+                                              AND ( ( dd.InnerType != 4 )
+                                                    AND ( ms.MovementTypeID = 2
+                                                          OR mm.MovementTypeID = 2
+                                                        )
+                                                  )
+                                              AND d.DocumentTypeID != 2
+                                              OR d.ExpTypeID = 3
+                                              AND ( ms.ID IS NULL
+                                                    OR ms.Canceled = 1
+                                                  )
+                                              AND ( mm.ID IS NULL
+                                                    OR mm.canceled = 1
+                                                  )
+                                            )
+                                      ) THEN 'inline'
+                                 ELSE 'none'
+                            END AS CanDelete ,
+                            CASE WHEN d.DocumentTypeID = 11 THEN 'Conclusion'
+                                 WHEN d.DocumentTypeID = 12 THEN 'Contract'
+                                 ELSE 'Document'
+                            END AS ReportType ,
+                            CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                      AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                 THEN ml.RegistrationDate
+                                 WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ml.RegistrationDate
+                                      AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                 dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                 THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                 ELSE ISNULL(d.LastModifyDate, d.CreateDate)
+                            END AS lastEditDate ,
+                            [dbo].[getspecdate](CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                                          AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                     THEN ml.RegistrationDate
+                                                     WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ml.RegistrationDate
+                                                          AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                     THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                                     ELSE ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                END) AS specdate ,
+                            CASE WHEN mm.ID IS NULL
+                                 THEN [dbo].[getLastOperation](d.DocumentTypeID,
+                                                              d.IsSent,
+                                                              d.IsOff, ml.id,
+                                                              ml.MovementTypeID,
+                                                              ml.FromID,
+                                                              ml.ToID,
+                                                              ml.Approved,
+                                                              ml.Canceled,
+                                                              ml.RegistrationDate)
+                                 ELSE [dbo].[getstatus](d.DocumentTypeID,
+                                                        d.IsSent, d.IsOff,
+                                                        ml.id,
+                                                        mm.MovementTypeID,
+                                                        mm.FromID, mm.ToID,
+                                                        mm.Approved,
+                                                        mm.Canceled, @appoID)
+                            END AS [Status] ,
+                            [dbo].[getLastOperation](d.DocumentTypeID,
+                                                     d.IsSent, d.IsOff, ml.id,
+                                                     ml.MovementTypeID,
+                                                     ml.FromID, ml.ToID,
+                                                     ml.Approved, ml.Canceled,
+                                                     ml.RegistrationDate) AS LastOperation ,
+                            CASE WHEN mm.Canceled = 1 THEN 'canceled'
+                                 WHEN ms.Approved = 1
+                                      AND ml.id = ms.id THEN 'signatured'
+                                 ELSE ( CASE WHEN mm.FromID = @appoID
+                                             THEN 'moved'
+                                             WHEN mm.ToID = @appoID
+                                                  AND mm.IsReaded = 0
+                                             THEN 'unread'
+                                             ELSE 'read'
+                                        END )
+                            END AS movedimage ,
+                            CASE WHEN mm.ToID = @appoID
+                                      AND mm.IsReaded = 0 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isUnReaded ,
+                            dbo.Fn_GetClientByDocumentID_Alex(d.ID) AS Client ,
+                            [dbo].[getmaxdate](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                      dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)),
+                                               ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                      dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              NULL)), d.IsSent,
+                                               d.IsOff, bd.IsSent, bd.IsOff,
+                                               mm.ToID, mm.Approved, @appoID,
+                                               ISNULL(ml.Approved,
+                                                      d.IsSignatured),
+                                               d.DocumentTypeID) AS leftedDaysString ,
+                            [dbo].[IsDocCarrefull](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                          dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)),
+                                                   ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                          dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              NULL)), d.IsSent,
+                                                   d.IsOff, bd.IsSent,
+                                                   bd.IsOff, mm.ToID,
+                                                   mm.Approved, @appoID,
+                                                   ISNULL(ml.Approved,
+                                                          d.IsSignatured)) AS isCarrefull ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[vw_ElVersionsInDocuments]
+                                                        WITH ( NOLOCK )
+                                               WHERE    DocumentID = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS withAttachment ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[vw_NotesInDocuments]
+                                                        WITH ( NOLOCK )
+                                               WHERE    DocumentID = d.id )
+                                 THEN 'Note_ex'
+                                 ELSE 'Note'
+                            END AS HasNote ,
+                            CASE WHEN ( d.IsQuestionsUploaded = 1
+                                        OR d.IsElVersionsUploaded = 1
+                                      )
+                                      AND NOT EXISTS ( SELECT 1
+                                                       FROM   [dbo].[vw_ElVersionsInDocuments]
+                                                              WITH ( NOLOCK )
+                                                       WHERE  DocumentID = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS needsAttachment ,
+                            isExecutedByExpert ,
+                            CASE WHEN d.IsPrinted = 1
+                                      OR dd.isprinted = 1 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isPrinted ,
+                            CASE WHEN d.IsPrinted = 0
+                                      OR dd.isprinted = 0 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isUnPrinted ,
+                            ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
+                                   dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)) AS CreatedBy ,
+                            CASE WHEN d.DocumentTypeID IN ( 2, 3, 14 )
+                                 THEN 'Documents/AddEdit'
+                                 WHEN d.DocumentTypeID = 5
+                                 THEN 'Documents/AddEditAuto'
+                                 WHEN d.DocumentTypeID = 6
+                                 THEN 'Documents/AddEditInner'
+                                 WHEN d.DocumentTypeID = 7
+                                 THEN 'Documents/AddEditLetter'
+                                 WHEN d.DocumentTypeID = 11
+                                 THEN CASE WHEN d.RequestType = 1
+                                           THEN 'Conclusions/AddEditAlcohol'
+                                           WHEN d.RequestType = 2
+                                           THEN 'Conclusions/AddEditNarco'
+                                           WHEN d.RequestType = 4
+                                           THEN 'Conclusions/AddEditAuto'
+                                           WHEN d.RequestType = 8
+                                           THEN 'Conclusions/AddEditAuto'
+                                           WHEN d.RequestType = 7
+                                           THEN 'Conclusions/AddEditHistology'
+										   WHEN d.IsTechReport = 1
+										   THEN 'Conclusions/AddEditTech'
+										   WHEN bd.IsAutoCrim = 1
+										   THEN 'Conclusions/AddEditCrim'
+                                           ELSE 'Conclusions/AddEdit'
+                                      END
+                                 WHEN d.DocumentTypeID = 12
+                                 THEN 'Contracts/AddEdit'
+                            END AS EditPath ,
+                            CASE WHEN d.IsSignatured = 1
+                                 THEN ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
+                                             dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID))
+                                 ELSE dbo.Fn_GetUserFullNameByAppointmentID_Alex(ms.ToID)
+                            END AS SignaturedBy ,
+                            dbo.Fn_GetBranchNameByDocumentID_Alex(d.ID) AS BranchName ,
+                            dbo.Fn_GetCountOfItemsByDocumentID_Alex(d.ID) AS CountOfAddItems ,
+                            dd.Content AS Content ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[CourierBlankNumbers]
+                                                        WITH ( NOLOCK )
+                                               WHERE    documentid = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS IsFromCourier ,
+                            SUM(1) OVER ( PARTITION BY 1 ) AS 'RowCount'
+                  FROM      [dbo].[udf_ActiveDocuments_All2fortest](@appoID, @DepID, @TypeID) d
+                            LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() dd ON dd.ID = d.ID
+                            LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() bd ON d.BaseID = bd.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMM(@appoid) mm ON mm.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMl() ml ON ml.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMS() ms ON ms.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMR() mr ON mr.DocumentID = d.ID
+                  WHERE
+				-- Andro Add Year
+				(d.DocumentTypeID = 2 AND dd.DetailTypeID = 2 AND d.ID = (SELECT TOP (1) BaseDocumentID FROM dbo.Documents WITH (NOLOCK) WHERE BaseDocumentID = d.ID AND IsActive = 1 AND (RequestTypeID = 10 OR RequestTypeID = 11)))
+				AND (
+			-- თუ აქვს საქაღალდეში, რომელიც არ უნდა ჩანდეს ფილტრებში
+                              NOT EXISTS ( SELECT   1
+                                           FROM     [dbo].[DocumentsInFolders] t2 WITH (NOLOCK)
+                                                    INNER JOIN [dbo].[Folders] t3 WITH (NOLOCK) ON t2.FolderID = t3.ID
+                                           WHERE    t2.ThingID = d.ID
+                                                    AND t3.UserID = @userID
+                                                    AND t3.OnlyInFolder = 1
+                                                    AND t2.IsActive = 1
+                                                    AND t3.IsActive = 1 )
+                            )
+                            AND (
+			--შიდა დასკვნის შემთხვევაში თუ შიდასაა მიბმული დასკვნა არ უნდა ჩანდეს ფილტრებში
+                                  d.DocumentTypeID = 11
+                                  AND bd.DocumentTypeID != 6
+                                  OR
+			--დასკვნის თანდართული წერილი არ უნდა ჩანდეს ფილტრში
+                                  d.DocumentTypeID = 7
+                                  AND ( dd.LetterType IS NULL
+                                        OR dd.LetterType != 1
+                                        OR dd.ConclusionID IS NULL
+                                      )
+                                  OR
+			--დამატებითი მასალა არ უნდა ჩანდეს ფილტრში
+                                  d.DocumentTypeID = 2
+                                  AND ( dd.DetailTypeID IS NULL
+                                        OR dd.DetailTypeID != 1
+                                        OR d.BaseID IS NULL
+                                      )
+                                  OR
+			--ყველა დანარჩენი შემთხვევა
+                                  d.DocumentTypeID != 11
+                                  AND d.DocumentTypeID != 7
+                                  AND d.DocumentTypeID != 2
+                                )
+                            AND ( ( @Done = 0
+                                    AND ( @TypeID = 0
+                                          OR @TypeID = 11
+                                          AND ( @LoadingStage = 1
+                                                AND d.ExpTypeID = 3
+                                                AND mm.ToID = @appoID
+                                                AND mm.MovementTypeID = 4
+                                                AND mm.Approved = 1
+                                                OR @LoadingStage = 0
+                                                AND ( d.ExpTypeID IN ( 1, 2 )
+                                                      OR mm.ToID != @appoID
+                                                      OR mm.MovementTypeID != 4
+                                                      OR mm.Approved != 1
+                                                    )
+                                              )
+                                          OR @TypeID != 11
+                                        )
+                                    AND ( mm.Approved = 0
+                                          OR mm.MovementTypeID = 4
+                                        )
+                                    OR @Done = 1
+                                    AND mm.Approved = 1
+                                    AND mm.MovementTypeID != 4
+                                  )
+			--ან გამოგზავნილია ან სამ უფროსი ვარ და მე ვწერ დასკვნას
+                                  AND mm.id IS NOT NULL
+                                  AND
+			--არაა ხელმოწერილი სხვის მიერ
+                                  ( d.DocumentTypeID = 11
+                                    AND ( ms.ID IS NULL
+                                          OR ms.Approved = 0
+                                        )
+                                    OR d.DocumentTypeID != 11
+                                  )
+                                  AND
+			--მივიღე და დავიწუნე, ან გავაგზავნე და დამიწუნეს, ან გავაგზავნე საქმეში ჩართვა
+                                  ( mm.ToID = @appoID
+                                    AND mm.Canceled != 1
+                                    OR mm.FromID = @appoID
+                                    AND ( mm.Canceled = 1
+                                          OR mm.MovementTypeID = 14
+                                        )
+                                    AND ( dbo.Fn_MovementsMTo_IsCanceled(d.ID,
+                                                              @appoid) = 0 )
+                                  )
+                                  AND
+			--გამომიგზავნეს ხელმოწერაზე და არ მიმოქმედია ჯერ
+                                  ( mm.MovementTypeID != 5
+                                    OR mm.Approved = 0
+                                  )
+                                  AND
+			--გამომიგზავნეს რეზოლუციაზე და არ მიმოქმედია ჯერ
+                                  ( mm.MovementTypeID != 3
+                                    OR mm.Approved = 0
+                                    AND mm.Canceled = 0
+                                    OR mm.MovementTypeID = 3 -- 2013-08-16 როცა რეზოლუციას იწუნებენ არ ჩანს შემოსულებში
+                                    AND mm.Canceled = 1
+                                  )
+                                  AND
+			--არ გაუვლია რეზოლუცია, ან მე ვარ რეზოლუციის ავტორი
+                                  ( mr.id IS NULL
+                                    OR mr.Approved = 1
+                                    OR mm.MovementTypeID = 3
+                                    AND mm.Approved = 0
+                                    OR mr.ID IS NOT NULL -- 2013-08-16 რეზოლუციის უარყოფის მერე როცა დამაწერენ
+                                    AND mr.Canceled = 1
+                                  )
+			--ან უფროსი ვარ კომპლექსურში, და უნდა გადამივიდეს მოლოდინში
+                                  OR d.DocumentTypeID = 11
+                                  AND @IsSenior = 1
+                                  AND mm.id IS NULL
+                                  AND d.AuthorID = @appoID
+                                  AND d.ExpTypeID = 3
+                                  AND d.isExecutedByExpert = 1
+                                )
+                ) AS Q
+        ORDER BY Q.specdate DESC ,
+                Q.lastEditDate DESC 
+                OFFSET @StartRowIndex ROWS
+
+	FETCH NEXT @LastRowIndex - @StartRowIndex ROWS ONLY
+
+	OPTION  ( OPTIMIZE FOR ( @appoid UNKNOWN ) )
+
+	END
+
+	ELSE
+	BEGIN
+        SELECT  ID ,
+                DocumentNumber ,
+                CreateDate ,
+                BaseDocument ,
+                ServiceName ,
+                CreatedByID ,
+                Term ,
+                DocumentTypeID ,
+                documentType ,
+                CanEdit ,
+                CanEditDocument ,
+                CanDelete ,
+                ReportType ,
+                lastEditDate ,
+                specdate ,
+                Status ,
+                LastOperation ,
+                movedimage ,
+                isUnReaded ,
+                Client ,
+                leftedDaysString ,
+                isCarrefull ,
+                withAttachment ,
+                HasNote ,
+                needsAttachment ,
+                isExecutedByExpert ,
+                isPrinted ,
+                isUnPrinted ,
+                CreatedBy ,
+                EditPath ,
+                SignaturedBy ,
+                BranchName ,
+                CountOfAddItems ,
+                Content ,
+                IsFromCourier ,
+                [RowCount]
+        FROM    ( SELECT    d.ID ,
+                            ISNULL(d.DocumentNumber, '') AS DocumentNumber ,
+                            d.CreateDate ,
+                            ISNULL(bd.DocumentNumber, '') AS BaseDocument ,
+                            CASE WHEN ISNULL(dd.serviceid, bd.ServiceID) = '471BA814-0D68-4F4B-9FFF-B18446E1F7F4'
+                                 THEN 'Red'
+                                 ELSE 'Black'
+                            END AS ServiceName ,
+                            CASE WHEN d.DocumentTypeID IN ( 11, 12 )
+                                 THEN d.AuthorID
+                                 ELSE dd.FromID
+                            END AS CreatedByID ,
+                            ISNULL(dd.Term, 0) AS Term ,
+                            d.DocumentTypeID ,
+                            dbo.getdoctype(d.DocumentTypeID, dd.DetailTypeID,
+                                           d.RequestType, DD.InnerType,
+                                           DD.LetterType, d.IsTechReport, d.IsAutoCrim, bd.IsAutoCrim, d.InnerSubTypeID) AS documentType ,
+                            CASE WHEN d.CreatedBy != @userID THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 5
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 5
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
+                                 THEN 'none'
+                                 WHEN ( d.CreatedBy = @userID )
+                                      AND ( d.DocumentTypeID != 11
+                                            OR d.AuthorID = @appoID
+                                          )
+                                      AND d.DocumentTypeID != 2
+                                      AND d.DocumentTypeID != 3
+                                      AND d.DocumentTypeID != 14
+                                      AND d.DocumentTypeID != 5
+                                      AND ( d.IsSignatured = 0
+                                            OR d.IsSignatured IS NULL
+                                          )
+                                      AND ( ml.ID IS NULL
+                                            OR ml.canceled = 1
+                                            OR ml.ToID = @appoID
+                                            AND ml.ToID = d.AuthorID --Created Paata
+                                            AND d.DocumentTypeID != 6
+                                            OR d.ExpTypeID = 3
+                                            AND ( ms.ID IS NULL
+                                                  OR ms.Canceled = 1
+                                                )
+                                            AND ( mm.ID IS NULL
+                                                  OR mm.canceled = 1
+                                                )
+                                          ) THEN 'inline'
+                                 ELSE 'none'
+                            END AS CanEdit ,
+                            CASE
+							WHEN d.IsAutoCrim = 1 AND EXISTS ( SELECT 1
+											FROM [dbo].[Conclusions] WITH ( NOLOCK )
+											WHERE DocumentID = d.ID AND IsActive = 1
+										) THEN CONVERT(BIT, 0)
+							WHEN d.CreatedBy = @userID
+                                      AND ( ( d.DocumentTypeID = 2
+                                              AND ( ml.ID IS NULL
+                                                    OR ml.canceled = 1
+                                                    OR ml.MovementTypeID = 2
+                                                  )
+                                            )
+                                            OR ( d.DocumentTypeID IN ( 3, 14 )
+                                                 AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                               )
+                                          ) THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS CanEditDocument ,
+                            CASE WHEN d.CreatedBy != @userID THEN 'none'
+                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
+                                 THEN 'inline'
+                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
+                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
+                                 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 0 THEN 'inline'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType = 7
+                                      AND d.IsPrinted = 1 THEN 'none'
+                                 WHEN d.DocumentTypeID = 11
+                                      AND d.RequestType IN ( 1, 2, 4 )
+                                      AND d.IsSent = 1 THEN 'none'
+                                 WHEN ( ( d.CreatedBy = @userID )
+                                        AND ( d.DocumentTypeID != 11
+                                              OR d.AuthorID = @appoID --Created Paata
+                                              
+                                            )
+                                        AND ( d.IsSignatured = 0
+                                              OR d.IsSignatured IS NULL
+                                            )
+                                        AND ( ml.ID IS NULL
+                                              OR ml.canceled = 1
+                                              OR ml.ToID = @appoID
+                                              AND ml.ToID = d.AuthorID --Created Paata
+                                              AND ( ( dd.InnerType != 4 )
+                                                    AND ( ms.MovementTypeID = 2
+                                                          OR mm.MovementTypeID = 2
+                                                        )
+                                                  )
+                                              AND d.DocumentTypeID != 2
+                                              OR d.ExpTypeID = 3
+                                              AND ( ms.ID IS NULL
+                                                    OR ms.Canceled = 1
+                                                  )
+                                              AND ( mm.ID IS NULL
+                                                    OR mm.canceled = 1
+                                                  )
+                                            )
+                                      ) THEN 'inline'
+                                 ELSE 'none'
+                            END AS CanDelete ,
+                            CASE WHEN d.DocumentTypeID = 11 THEN 'Conclusion'
+                                 WHEN d.DocumentTypeID = 12 THEN 'Contract'
+                                 ELSE 'Document'
+                            END AS ReportType ,
+                            CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                      AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                 THEN ml.RegistrationDate
+                                 WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ml.RegistrationDate
+                                      AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                 dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                 THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                 ELSE ISNULL(d.LastModifyDate, d.CreateDate)
+                            END AS lastEditDate ,
+                            [dbo].[getspecdate](CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                                          AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                     THEN ml.RegistrationDate
+                                                     WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ml.RegistrationDate
+                                                          AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)) > ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                     THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL))
+                                                     ELSE ISNULL(d.LastModifyDate,
+                                                              d.CreateDate)
+                                                END) AS specdate ,
+                            CASE WHEN mm.ID IS NULL
+                                 THEN [dbo].[getLastOperation](d.DocumentTypeID,
+                                                              d.IsSent,
+                                                              d.IsOff, ml.id,
+                                                              ml.MovementTypeID,
+                                                              ml.FromID,
+                                                              ml.ToID,
+                                                              ml.Approved,
+                                                              ml.Canceled,
+                                                              ml.RegistrationDate)
+                                 ELSE [dbo].[getstatus](d.DocumentTypeID,
+                                                        d.IsSent, d.IsOff,
+                                                        ml.id,
+                                                        mm.MovementTypeID,
+                                                        mm.FromID, mm.ToID,
+                                                        mm.Approved,
+                                                        mm.Canceled, @appoID)
+                            END AS [Status] ,
+                            [dbo].[getLastOperation](d.DocumentTypeID,
+                                                     d.IsSent, d.IsOff, ml.id,
+                                                     ml.MovementTypeID,
+                                                     ml.FromID, ml.ToID,
+                                                     ml.Approved, ml.Canceled,
+                                                     ml.RegistrationDate) AS LastOperation ,
+                            CASE WHEN mm.Canceled = 1 THEN 'canceled'
+                                 WHEN ms.Approved = 1
+                                      AND ml.id = ms.id THEN 'signatured'
+                                 ELSE ( CASE WHEN mm.FromID = @appoID
+                                             THEN 'moved'
+                                             WHEN mm.ToID = @appoID
+                                                  AND mm.IsReaded = 0
+                                             THEN 'unread'
+                                             ELSE 'read'
+                                        END )
+                            END AS movedimage ,
+                            CASE WHEN mm.ToID = @appoID
+                                      AND mm.IsReaded = 0 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isUnReaded ,
+                            dbo.Fn_GetClientByDocumentID_Alex(d.ID) AS Client ,
+                            [dbo].[getmaxdate](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                      dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)),
+                                               ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                      dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              NULL)), d.IsSent,
+                                               d.IsOff, bd.IsSent, bd.IsOff,
+                                               mm.ToID, mm.Approved, @appoID,
+                                               ISNULL(ml.Approved,
+                                                      d.IsSignatured),
+                                               d.DocumentTypeID) AS leftedDaysString ,
+                            [dbo].[IsDocCarrefull](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                          dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
+                                                              NULL)),
+                                                   ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              @DepID),
+                                                          dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
+                                                              NULL)), d.IsSent,
+                                                   d.IsOff, bd.IsSent,
+                                                   bd.IsOff, mm.ToID,
+                                                   mm.Approved, @appoID,
+                                                   ISNULL(ml.Approved,
+                                                          d.IsSignatured)) AS isCarrefull ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[vw_ElVersionsInDocuments]
+                                                        WITH ( NOLOCK )
+                                               WHERE    DocumentID = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS withAttachment ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[vw_NotesInDocuments]
+                                                        WITH ( NOLOCK )
+                                               WHERE    DocumentID = d.id )
+                                 THEN 'Note_ex'
+                                 ELSE 'Note'
+                            END AS HasNote ,
+                            CASE WHEN ( d.IsQuestionsUploaded = 1
+                                        OR d.IsElVersionsUploaded = 1
+                                      )
+                                      AND NOT EXISTS ( SELECT 1
+                                                       FROM   [dbo].[vw_ElVersionsInDocuments]
+                                                              WITH ( NOLOCK )
+                                                       WHERE  DocumentID = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS needsAttachment ,
+                            isExecutedByExpert ,
+                            CASE WHEN d.IsPrinted = 1
+                                      OR dd.isprinted = 1 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isPrinted ,
+                            CASE WHEN d.IsPrinted = 0
+                                      OR dd.isprinted = 0 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS isUnPrinted ,
+                            ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
+                                   dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)) AS CreatedBy ,
+                            CASE WHEN d.DocumentTypeID IN ( 2, 3, 14 )
+                                 THEN 'Documents/AddEdit'
+                                 WHEN d.DocumentTypeID = 5
+                                 THEN 'Documents/AddEditAuto'
+                                 WHEN d.DocumentTypeID = 6
+                                 THEN 'Documents/AddEditInner'
+                                 WHEN d.DocumentTypeID = 7
+                                 THEN 'Documents/AddEditLetter'
+                                 WHEN d.DocumentTypeID = 11
+                                 THEN CASE WHEN d.RequestType = 1
+                                           THEN 'Conclusions/AddEditAlcohol'
+                                           WHEN d.RequestType = 2
+                                           THEN 'Conclusions/AddEditNarco'
+                                           WHEN d.RequestType = 4
+                                           THEN 'Conclusions/AddEditAuto'
+                                           WHEN d.RequestType = 8
+                                           THEN 'Conclusions/AddEditAuto'
+                                           WHEN d.RequestType = 7
+                                           THEN 'Conclusions/AddEditHistology'
+										   WHEN d.IsTechReport = 1
+										   THEN 'Conclusions/AddEditTech'
+										   WHEN bd.IsAutoCrim = 1
+										   THEN 'Conclusions/AddEditCrim'
+                                           ELSE 'Conclusions/AddEdit'
+                                      END
+                                 WHEN d.DocumentTypeID = 12
+                                 THEN 'Contracts/AddEdit'
+                            END AS EditPath ,
+                            CASE WHEN d.IsSignatured = 1
+                                 THEN ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
+                                             dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID))
+                                 ELSE dbo.Fn_GetUserFullNameByAppointmentID_Alex(ms.ToID)
+                            END AS SignaturedBy ,
+                            dbo.Fn_GetBranchNameByDocumentID_Alex(d.ID) AS BranchName ,
+                            dbo.Fn_GetCountOfItemsByDocumentID_Alex(d.ID) AS CountOfAddItems ,
+                            dd.Content AS Content ,
+                            CASE WHEN EXISTS ( SELECT   1
+                                               FROM     [dbo].[CourierBlankNumbers]
+                                                        WITH ( NOLOCK )
+                                               WHERE    documentid = d.id )
+                                 THEN CONVERT(BIT, 1)
+                                 ELSE CONVERT(BIT, 0)
+                            END AS IsFromCourier ,
+                            SUM(1) OVER ( PARTITION BY 1 ) AS 'RowCount'
+                  FROM      [dbo].[udf_ActiveDocuments_All2fortest](@appoID, @DepID, @TypeID) d
+                            LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() dd ON dd.ID = d.ID
+                            LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() bd ON d.BaseID = bd.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMM(@appoid) mm ON mm.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMl() ml ON ml.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMS() ms ON ms.DocumentID = d.ID
+                            LEFT JOIN dbo.UDF_vw_MovementsMR() mr ON mr.DocumentID = d.ID
+                  WHERE
+				-- Andro Add Year
+				(d.CreateDate BETWEEN @StartDateValue AND @EndDateValue)
+				AND (
+			-- თუ აქვს საქაღალდეში, რომელიც არ უნდა ჩანდეს ფილტრებში
+                              NOT EXISTS ( SELECT   1
+                                           FROM     [dbo].[DocumentsInFolders] t2 WITH (NOLOCK)
+                                                    INNER JOIN [dbo].[Folders] t3 WITH (NOLOCK) ON t2.FolderID = t3.ID
+                                           WHERE    t2.ThingID = d.ID
+                                                    AND t3.UserID = @userID
+                                                    AND t3.OnlyInFolder = 1
+                                                    AND t2.IsActive = 1
+                                                    AND t3.IsActive = 1 )
+                            )
+                            AND (
+			--შიდა დასკვნის შემთხვევაში თუ შიდასაა მიბმული დასკვნა არ უნდა ჩანდეს ფილტრებში
+                                  d.DocumentTypeID = 11
+                                  AND bd.DocumentTypeID != 6
+                                  OR
+			--დასკვნის თანდართული წერილი არ უნდა ჩანდეს ფილტრში
+                                  d.DocumentTypeID = 7
+                                  AND ( dd.LetterType IS NULL
+                                        OR dd.LetterType != 1
+                                        OR dd.ConclusionID IS NULL
+                                      )
+                                  OR
+			--დამატებითი მასალა არ უნდა ჩანდეს ფილტრში
+                                  d.DocumentTypeID = 2
+                                  AND ( dd.DetailTypeID IS NULL
+                                        OR dd.DetailTypeID != 1
+                                        OR d.BaseID IS NULL
+                                      )
+                                  OR
+			--ყველა დანარჩენი შემთხვევა
+                                  d.DocumentTypeID != 11
+                                  AND d.DocumentTypeID != 7
+                                  AND d.DocumentTypeID != 2
+                                )
+                            AND ( ( @Done = 0
+                                    AND ( @TypeID = 0
+                                          OR @TypeID = 11
+                                          AND ( @LoadingStage = 1
+                                                AND d.ExpTypeID = 3
+                                                AND mm.ToID = @appoID
+                                                AND mm.MovementTypeID = 4
+                                                AND mm.Approved = 1
+                                                OR @LoadingStage = 0
+                                                AND ( d.ExpTypeID IN ( 1, 2 )
+                                                      OR mm.ToID != @appoID
+                                                      OR mm.MovementTypeID != 4
+                                                      OR mm.Approved != 1
+                                                    )
+                                              )
+                                          OR @TypeID != 11
+                                        )
+                                    AND ( mm.Approved = 0
+                                          OR mm.MovementTypeID = 4
+                                        )
+                                    OR @Done = 1
+                                    AND mm.Approved = 1
+                                    AND mm.MovementTypeID != 4
+                                  )
+			--ან გამოგზავნილია ან სამ უფროსი ვარ და მე ვწერ დასკვნას
+                                  AND mm.id IS NOT NULL
+                                  AND
+			--არაა ხელმოწერილი სხვის მიერ
+                                  ( d.DocumentTypeID = 11
+                                    AND ( ms.ID IS NULL
+                                          OR ms.Approved = 0
+                                        )
+                                    OR d.DocumentTypeID != 11
+                                  )
+                                  AND
+			--მივიღე და დავიწუნე, ან გავაგზავნე და დამიწუნეს, ან გავაგზავნე საქმეში ჩართვა
+                                  ( mm.ToID = @appoID
+                                    AND mm.Canceled != 1
+                                    OR mm.FromID = @appoID
+                                    AND ( mm.Canceled = 1
+                                          OR mm.MovementTypeID = 14
+                                        )
+                                    AND ( dbo.Fn_MovementsMTo_IsCanceled(d.ID,
+                                                              @appoid) = 0 )
+                                  )
+                                  AND
+			--გამომიგზავნეს ხელმოწერაზე და არ მიმოქმედია ჯერ
+                                  ( mm.MovementTypeID != 5
+                                    OR mm.Approved = 0
+                                  )
+                                  AND
+			--გამომიგზავნეს რეზოლუციაზე და არ მიმოქმედია ჯერ
+                                  ( mm.MovementTypeID != 3
+                                    OR mm.Approved = 0
+                                    AND mm.Canceled = 0
+                                    OR mm.MovementTypeID = 3 -- 2013-08-16 როცა რეზოლუციას იწუნებენ არ ჩანს შემოსულებში
+                                    AND mm.Canceled = 1
+                                  )
+                                  AND
+			--არ გაუვლია რეზოლუცია, ან მე ვარ რეზოლუციის ავტორი
+                                  ( mr.id IS NULL
+                                    OR mr.Approved = 1
+                                    OR mm.MovementTypeID = 3
+                                    AND mm.Approved = 0
+                                    OR mr.ID IS NOT NULL -- 2013-08-16 რეზოლუციის უარყოფის მერე როცა დამაწერენ
+                                    AND mr.Canceled = 1
+                                  )
+			--ან უფროსი ვარ კომპლექსურში, და უნდა გადამივიდეს მოლოდინში
+                                  OR d.DocumentTypeID = 11
+                                  AND @IsSenior = 1
+                                  AND mm.id IS NULL
+                                  AND d.AuthorID = @appoID
+                                  AND d.ExpTypeID = 3
+                                  AND d.isExecutedByExpert = 1
+                                )
+                ) AS Q
+        ORDER BY Q.specdate DESC ,
+                Q.lastEditDate DESC 
+                OFFSET @StartRowIndex ROWS
+
+	FETCH NEXT @LastRowIndex - @StartRowIndex ROWS ONLY
+
+	OPTION  ( OPTIMIZE FOR ( @appoid UNKNOWN ) )
+
+	END
+
+    END
