@@ -1,0 +1,46 @@
+USE [eMembership];
+GO
+
+CREATE OR ALTER PROCEDURE [users].[GetUsersByName]
+    @UserName NVARCHAR(100) = NULL,
+    @FullName NVARCHAR(200) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET @UserName = NULLIF(LTRIM(RTRIM(@UserName)), N'');
+    SET @FullName = NULLIF(LTRIM(RTRIM(@FullName)), N'');
+
+    IF (
+        (@UserName IS NULL AND @FullName IS NULL)
+        OR
+        (@UserName IS NOT NULL AND @FullName IS NOT NULL)
+    )
+    BEGIN
+        THROW 50001, N'შეავსე მხოლოდ ერთი: UserName ან FullName.', 1;
+    END;
+
+    SELECT
+        u.ID AS UserId,
+        u.UserName,
+        u.FullName,
+        u.Gender,
+        ua.ID AS UserAppointmentId,
+        r.ID AS RoleId,
+        r.Name AS RoleName
+    FROM [users].[Users] AS u
+    INNER JOIN [orgs].[UserAppointments] AS ua
+        ON u.ID = ua.UserID
+    INNER JOIN [orgs].[UserAppointmentInRoles] AS uar
+        ON ua.ID = uar.UserAppointmentID
+    INNER JOIN [users].[roles] AS r
+        ON uar.RoleID = r.ID
+    WHERE
+        (@UserName IS NOT NULL
+            AND u.UserName LIKE N'%' + @UserName + N'%')
+        OR
+        (@FullName IS NOT NULL
+            AND u.FullName LIKE N'%' + @FullName + N'%')
+    ORDER BY u.ID, ua.ID, r.ID;
+END;
+GO
