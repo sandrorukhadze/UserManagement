@@ -1,82 +1,30 @@
-using System.Security.Cryptography;
-using System.Text;
-using eMembership.Application.Abstractions;
+PS C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api> dotnet run
+Using launch settings from C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api\Properties\launchSettings.json...
+Building...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5273
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (21ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+--------------------------------
+UserName : ნინო კიკაბიძე
+DB Hash  : 069494bc2386f0e7cef27cd1fbcc38e6
 
-namespace eMembership.Infrastructure.Authentication;
+UTF8              : 290142a4a32032327da03f1627153a55
+Unicode UTF16LE   : 47defd68397e3338bbe49cc80a39276e
+Unicode UTF16BE   : d0fa7d99b274812f3b03ccf671fd69b6
+ASCII             : fe55d0103cf2317b602b2ce37843c053
+UTF32             : 7a0bb6d6e06fa326e9dad5b4705722b8
 
-public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
-{
-    public bool Verify(
-        string plainPassword,
-        string userName,
-        string passwordHash)
-    {
-        var valueToHash = plainPassword + userName;
-        var dbHash = passwordHash.Trim();
-
-        var variants = new Dictionary<string, string>
-        {
-            ["UTF8"] = CreateHash(
-                valueToHash,
-                Encoding.UTF8),
-
-            ["Unicode UTF16LE"] = CreateHash(
-                valueToHash,
-                Encoding.Unicode),
-
-            ["Unicode UTF16BE"] = CreateHash(
-                valueToHash,
-                Encoding.BigEndianUnicode),
-
-            ["ASCII"] = CreateHash(
-                valueToHash,
-                Encoding.ASCII),
-
-            ["UTF32"] = CreateHash(
-                valueToHash,
-                Encoding.UTF32)
-        };
-
-        Console.WriteLine("--------------------------------");
-        Console.WriteLine($"UserName : {userName}");
-        Console.WriteLine($"DB Hash  : {dbHash}");
-        Console.WriteLine();
-
-        foreach (var item in variants)
-        {
-            Console.WriteLine(
-                $"{item.Key,-18}: {item.Value}");
-
-            if (string.Equals(
-                    item.Value,
-                    dbHash,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                Console.WriteLine();
-                Console.WriteLine($"MATCH = {item.Key}");
-                Console.WriteLine("--------------------------------");
-
-                return true;
-            }
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("NO MATCH");
-        Console.WriteLine("--------------------------------");
-
-        return false;
-    }
-
-    private static string CreateHash(
-        string value,
-        Encoding encoding)
-    {
-        var bytes = encoding.GetBytes(value);
-
-        var hashBytes = MD5.HashData(bytes);
-
-        return Convert
-            .ToHexString(hashBytes)
-            .ToLowerInvariant();
-    }
-}
+NO MATCH
+--------------------------------
