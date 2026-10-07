@@ -1,71 +1,17 @@
 USE [eDocument];
 GO
 
-DECLARE @UserID UNIQUEIDENTIFIER =
-    '77CBA770-018B-4684-808B-EF3409385ED4';
-
-SELECT TOP (100)
-    d.DocumentNumber AS [ნომერი],
-
-    dbo.getdoctype(
-        d.DocumentTypeID,
-        dd.DetailTypeID,
-        d.RequestType,
-        dd.InnerType,
-        dd.LetterType,
-        d.IsTechReport,
-        d.IsAutoCrim,
-        bd.IsAutoCrim,
-        d.InnerSubTypeID
-    ) AS [ტიპი],
-
-    CAST(NULL AS nvarchar(500)) AS [კლიენტი],
-
-    ISNULL(authorUser.FullName, senderUser.FullName) AS [ავტორი],
-
-    bd.DocumentNumber AS [საფუძველი],
-
-    dd.Content AS [შინაარსი]
-
-FROM eMembership.orgs.UserAppointments AS ua
-
-INNER JOIN eMembership.orgs.Positions AS p
-    ON p.ID = ua.PositionID
-
-CROSS APPLY dbo.udf_ActiveDocuments_All2fortest(
-    ua.ID,
-    p.OrganizationStructureID,
-    0
-) AS d
-
-LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() AS dd
-    ON dd.ID = d.ID
-
-LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() AS bd
-    ON bd.ID = d.BaseID
-
--- დოკუმენტის ავტორის დანიშვნა
-LEFT JOIN eMembership.orgs.UserAppointments AS authorAppointment
-    ON authorAppointment.ID = d.AuthorID
-
--- ავტორის სახელი
-LEFT JOIN eMembership.users.Users AS authorUser
-    ON authorUser.ID = authorAppointment.UserID
-
--- გამომგზავნის დანიშვნა
-LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
-    ON senderAppointment.ID = dd.FromID
-
--- გამომგზავნის სახელი
-LEFT JOIN eMembership.users.Users AS senderUser
-    ON senderUser.ID = senderAppointment.UserID
-
-WHERE ua.UserID = @UserID
-    AND ua.IsActive = 1
-    AND ua.BeginDate <= CONVERT(date, GETDATE())
-    AND (
-        ua.FinishDate IS NULL
-        OR ua.FinishDate >= CONVERT(date, GETDATE())
-    )
-
-ORDER BY d.CreateDate DESC, d.ID;
+SELECT
+    s.name AS SchemaName,
+    t.name AS TableName,
+    c.name AS ColumnName
+FROM sys.tables AS t
+INNER JOIN sys.schemas AS s
+    ON s.schema_id = t.schema_id
+INNER JOIN sys.columns AS c
+    ON c.object_id = t.object_id
+WHERE
+    t.name LIKE '%Document%'
+    OR t.name LIKE '%Movement%'
+    OR t.name LIKE '%Application%'
+ORDER BY s.name, t.name, c.column_id;
