@@ -1,16 +1,60 @@
-curl -X 'GET' \
-  'http://localhost:5226/api/users?userName=%E1%83%A1%E1%83%90%E1%83%9C%E1%83%93%E1%83%A0%E1%83%9D' \
-  -H 'accept: text/plain'
-
-http://localhost:5226/api/users?userName=%E1%83%A1%E1%83%90%E1%83%9C%E1%83%93%E1%83%A0%E1%83%9D
-	
-Error: Internal Server Error
-
-Response body
-Download
-{
-  "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-  "title": "An error occurred while processing your request.",
-  "status": 500,
-  "traceId": "00-4cf9f00dd896fccdc121e47a577b9561-908f75d4a1d94de7-00"
-}
+ail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      Microsoft.Data.SqlClient.SqlException (0x80131904): The EXECUTE permission was denied on the object 'GetUsersByName', database 'eMembership', schema 'users'.
+         at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__270_0(Task`1 result)
+         at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+      --- End of stack trace from previous location ---
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+         at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+      --- End of stack trace from previous location ---
+         at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 434
+         at Infrastructure.Repositories.UserRepository.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 39
+         at Infrastructure.Repositories.UserRepository.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 42
+         at Application.Services.UserService.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Application\Services\UserService.cs:line 31
+         at API.Controllers.UsersController.GetByName(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\API\Controllers\UsersController.cs:line 26
+         at lambda_method5(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+         at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+      ClientConnectionId:0a2b9268-ed78-4b19-9411-50d4a77b048b
+      Error Number:229,State:5,Class:14
+fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      Microsoft.Data.SqlClient.SqlException (0x80131904): The EXECUTE permission was denied on the object 'GetUsersByName', database 'eMembership', schema 'users'.
+         at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__270_0(Task`1 result)
+         at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+      --- End of stack trace from previous location ---
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+         at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+      --- End of stack trace from previous location ---
+         at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 434
+         at Infrastructure.Repositories.UserRepository.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 39
+         at Infrastructure.Repositories.UserRepository.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 42
+         at Application.Services.UserService.GetByNameAsync(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Application\Services\UserService.cs:line 31
+         at API.Controllers.UsersController.GetByName(String userName, String fullName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\API\Controllers\UsersController.cs:line 26
+         at lambda_method5(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+         at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+      ClientConnectionId:0a2b9268-ed78-4b19-9411-50d4a77b048b
+      Error Number:229,State:5,Class:14
