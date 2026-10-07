@@ -1,16 +1,44 @@
-SchemaName	TableName	ColumnName	DataType
-orgs	OrganizationStructures	ID	uniqueidentifier
-orgs	OrganizationStructures	Name	nvarchar
-orgs	OrganizationStructures	Code	nvarchar
-orgs	OrganizationStructures	OrganizationTypeID	uniqueidentifier
-orgs	OrganizationStructures	ParentID	uniqueidentifier
-orgs	OrganizationStructures	RegionID	uniqueidentifier
-orgs	OrganizationStructures	HasOffDay	bit
-orgs	OrganizationStructures	IsActive	bit
-orgs	OrganizationStructures	CreateDate	datetime
-orgs	OrganizationStructures	CreatedBy	uniqueidentifier
-orgs	OrganizationStructures	LastModifyDate	datetime
-orgs	OrganizationStructures	LastModifiedBy	uniqueidentifier
-orgs	OrganizationStructures	Version	timestamp
-orgs	OrganizationStructures	BranchID	uniqueidentifier
-orgs	OrganizationStructures	NameEn	nvarchar
+USE [eMembership];
+GO
+
+SELECT
+    u.ID AS UserID,
+    u.UserName,
+    u.FullName,
+
+    ua.ID AS AppointmentID,
+    ua.IsActive AS AppointmentIsActive,
+    ua.BeginDate,
+    ua.FinishDate,
+
+    p.ID AS PositionID,
+    pt.Name AS PositionName,
+
+    os.ID AS OrganizationStructureID,
+    os.Name AS OrganizationStructureName,
+    os.ParentID,
+
+    parent.Name AS ParentStructureName
+
+FROM users.Users AS u
+
+INNER JOIN orgs.UserAppointments AS ua
+    ON ua.UserID = u.ID
+
+LEFT JOIN orgs.Positions AS p
+    ON p.ID = ua.PositionID
+
+LEFT JOIN orgs.PositionTypes AS pt
+    ON pt.ID = p.PositionTypeID
+
+LEFT JOIN orgs.OrganizationStructures AS os
+    ON os.ID = p.OrganizationStructureID
+
+LEFT JOIN orgs.OrganizationStructures AS parent
+    ON parent.ID = os.ParentID
+
+WHERE
+    u.UserName = N'ნინო კიკაბიძე'
+    OR u.FullName = N'ნინო კიკაბიძე'
+
+ORDER BY ua.BeginDate DESC, ua.ID;
