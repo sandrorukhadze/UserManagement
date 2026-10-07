@@ -12,6 +12,16 @@ SELECT TOP (100)
     baseDoc.DocumentNumber AS [საფუძველი],
     dd.Contents AS [შინაარსი],
 
+    dd.PhoneNumber AS [ტელეფონის ნომერი],
+
+    CASE d.IsSent
+        WHEN 1 THEN N'კი'
+        WHEN 0 THEN N'არა'
+        ELSE N'უცნობია'
+    END AS [გაგზავნილია],
+
+    d.Notes AS [შენიშვნა],
+
     d.CreateDate AS [შექმნის თარიღი],
     received.RegistrationDate AS [მიღების თარიღი],
     sender.FullName AS [გამომგზავნი],
@@ -35,8 +45,6 @@ SELECT TOP (100)
 
 FROM dbo.Documents AS d
 
--- ნინოს მიმდინარე დანიშვნებზე ბოლო აქტიური,
--- გაუუქმებელი შემოსული მოძრაობა
 CROSS APPLY (
     SELECT TOP (1)
         m.RegistrationDate,
@@ -58,9 +66,7 @@ CROSS APPLY (
         AND m.IsActive = 1
         AND m.Canceled = 0
 
-    ORDER BY
-        m.CreateDate DESC,
-        m.ID DESC
+    ORDER BY m.CreateDate DESC, m.ID DESC
 ) AS received
 
 LEFT JOIN dbo.DocumentDetails AS dd
@@ -69,20 +75,16 @@ LEFT JOIN dbo.DocumentDetails AS dd
 LEFT JOIN dbo.Documents AS baseDoc
     ON baseDoc.ID = d.BaseDocumentID
 
--- დოკუმენტის შემქმნელი
 LEFT JOIN eMembership.users.Users AS creator
     ON creator.ID = d.CreatedBy
 
--- დოკუმენტის კლიენტები
 LEFT JOIN dbo.ClientsInDocuments AS cid
     ON cid.DocumentID = d.ID
     AND cid.IsActive = 1
 
--- გამომგზავნის დანიშვნა
 LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
     ON senderAppointment.ID = received.FromID
 
--- გამომგზავნის სახელი
 LEFT JOIN eMembership.users.Users AS sender
     ON sender.ID = senderAppointment.UserID
 
