@@ -1,11 +1,79 @@
-SELECT
-    [ID],
-    [UserName],
-    [Password],
-    [IsActive],
-    LEN([UserName]) AS UserNameLength,
-    LEN([Password]) AS PasswordLength
-FROM [eMembership].[users].[Users]
-WHERE [UserName] = N'ნინო კიკაბიძე';
+using System.Security.Cryptography;
+using System.Text;
+using eMembership.Application.Abstractions;
 
-77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	069494bc2386f0e7cef27cd1fbcc38e6	1	13	32
+namespace eMembership.Infrastructure.Authentication;
+
+public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
+{
+    public bool Verify(
+        string plainPassword,
+        string passwordHash)
+    {
+        passwordHash = passwordHash.Trim();
+
+        var utf8 = CreateHash(
+            plainPassword,
+            Encoding.UTF8);
+
+        var unicode = CreateHash(
+            plainPassword,
+            Encoding.Unicode);
+
+        var bigEndian = CreateHash(
+            plainPassword,
+            Encoding.BigEndianUnicode);
+
+        Console.WriteLine("--------------------------------");
+        Console.WriteLine($"DB Hash : {passwordHash}");
+        Console.WriteLine($"UTF8    : {utf8}");
+        Console.WriteLine($"Unicode : {unicode}");
+        Console.WriteLine($"UTF16BE : {bigEndian}");
+        Console.WriteLine("--------------------------------");
+
+        if (string.Equals(
+                utf8,
+                passwordHash,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("MATCH = UTF8");
+            return true;
+        }
+
+        if (string.Equals(
+                unicode,
+                passwordHash,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("MATCH = Unicode UTF-16LE");
+            return true;
+        }
+
+        if (string.Equals(
+                bigEndian,
+                passwordHash,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("MATCH = UTF-16BE");
+            return true;
+        }
+
+        Console.WriteLine("PASSWORD HASH DOES NOT MATCH");
+
+        return false;
+    }
+
+    private static string CreateHash(
+        string password,
+        Encoding encoding)
+    {
+        var bytes = encoding.GetBytes(password);
+
+        var hashBytes = MD5.HashData(bytes);
+
+        return Convert
+            .ToHexString(hashBytes)
+            .ToLowerInvariant();
+    }
+}
+
