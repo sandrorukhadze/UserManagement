@@ -1,80 +1,31 @@
-using System.Security.Cryptography;
-using System.Text;
-using eMembership.Application.Abstractions;
-
-namespace eMembership.Infrastructure.Authentication;
-
-public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
-{
-    public bool Verify(
-        string plainPassword,
-        string userName,
-        string passwordHash)
-    {
-        var valueToHash = plainPassword + userName;
-
-        var utf8 = CreateHash(
-            valueToHash,
-            Encoding.UTF8);
-
-        var unicode = CreateHash(
-            valueToHash,
-            Encoding.Unicode);
-
-        var bigEndianUnicode = CreateHash(
-            valueToHash,
-            Encoding.BigEndianUnicode);
-
-        Console.WriteLine("--------------------------------");
-        Console.WriteLine($"UserName       : {userName}");
-        Console.WriteLine($"DB Hash        : {passwordHash}");
-        Console.WriteLine($"UTF8           : {utf8}");
-        Console.WriteLine($"Unicode UTF16LE: {unicode}");
-        Console.WriteLine($"Unicode UTF16BE: {bigEndianUnicode}");
-        Console.WriteLine("--------------------------------");
-
-        if (string.Equals(
-                utf8,
-                passwordHash.Trim(),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = UTF8");
-            return true;
-        }
-
-        if (string.Equals(
-                unicode,
-                passwordHash.Trim(),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = Unicode UTF16LE");
-            return true;
-        }
-
-        if (string.Equals(
-                bigEndianUnicode,
-                passwordHash.Trim(),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = Unicode UTF16BE");
-            return true;
-        }
-
-        Console.WriteLine("NO MATCH");
-
-        return false;
-    }
-
-    private static string CreateHash(
-        string value,
-        Encoding encoding)
-    {
-        var bytes = encoding.GetBytes(value);
-
-        var hashBytes = MD5.HashData(bytes);
-
-        return Convert
-            .ToHexString(hashBytes)
-            .ToLowerInvariant();
-    }
-}
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+--------------------------------
+UserName       : ნინო კიკაბიძე
+DB Hash        : 069494bc2386f0e7cef27cd1fbcc38e6
+UTF8           : 290142a4a32032327da03f1627153a55
+Unicode UTF16LE: 47defd68397e3338bbe49cc80a39276e
+Unicode UTF16BE: d0fa7d99b274812f3b03ccf671fd69b6
+--------------------------------
+NO MATCH
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+--------------------------------
+UserName       : დემეტრე ბარბაქაძე
+DB Hash        : cf7df1ca1b442d62cc7e20deea5f3b35
+UTF8           : c2a677ad15ffbb2da674a64e014e3856
+Unicode UTF16LE: 935544b254a99cda0461e4b57a333851
+Unicode UTF16BE: 13f12572e9993eb409a5165bfb27235a
+--------------------------------
+NO MATCH
