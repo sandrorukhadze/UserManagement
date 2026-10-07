@@ -1,110 +1,19 @@
-// ======================================================
-// 1. Application/DTOs/UserInfoDto.cs
-// UserId უნდა იყოს Guid:
-// ======================================================
-
-public Guid UserId { get; set; }
-
-
-// ======================================================
-// 2. Application/Interfaces/IUserRepository.cs
-// არსებული GetByUserNameAsync ჩაანაცვლე:
-// ======================================================
-
-Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default);
-
-
-// ======================================================
-// 3. Infrastructure/Repositories/UserRepository.cs
-// ფაილის თავში უნდა გქონდეს:
-// ======================================================
-
-using System.Data;
-using Application.DTOs;
-using Dapper;
-using Microsoft.Data.SqlClient;
-
-// კლასის შიგნით არსებული GetByUserNameAsync
-// მთლიანად ჩაანაცვლე ამ მეთოდით:
-
-public async Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default)
-{
-    await using var connection =
-        new SqlConnection(_connectionString);
-
-    await connection.OpenAsync(cancellationToken);
-
-    // ვეძებთ UserName-ში ტექსტის შემცველობით.
-    const string sql = """
-        SELECT
-            ID AS UserId,
-            UserName,
-            FullName,
-            Gender,
-            PrivateNumber,
-            EMail,
-            IsActive
-        FROM [eMembership].[users].[Users]
-        WHERE UserName LIKE @SearchPattern
-        ORDER BY UserName, ID;
-        """;
-
-    // მაგალითად "ნიკა" გადაიქცევა "%ნიკა%"-დ.
-    // DbType.String პარამეტრს Unicode ტექსტად გადასცემს.
-    var parameters = new DynamicParameters();
-
-    parameters.Add(
-        "SearchPattern",
-        "%" + userName.Trim() + "%",
-        DbType.String);
-
-    var command = new CommandDefinition(
-        commandText: sql,
-        parameters: parameters,
-        commandType: CommandType.Text,
-        cancellationToken: cancellationToken);
-
-    var users = await connection.QueryAsync<UserInfoDto>(command);
-
-    return users.ToList();
-}
+SELECT TOP (1000) [ID]
+      ,[UserName]
+      ,[Password]
+      ,[FullName]
+      ,[Gender]
+      ,[PrivateNumber]
+      ,[EMail]
+      ,[IsActive]
+      ,[CreateDate]
+      ,[CreatedBy]
+      ,[LastModifyDate]
+      ,[LastModifiedBy]
+      ,[Version]
+      ,[IsFirstPassword]
+      ,[IsChancelleryAccount]
+  FROM [eMembership].[users].[Users]
 
 
-// ======================================================
-// 4. Application/Services/UserService.cs
-// არსებული GetByUserNameAsync ჩაანაცვლე:
-// ======================================================
-
-public Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default)
-{
-    return _users.GetByUserNameAsync(
-        userName.Trim(),
-        cancellationToken);
-}
-
-
-// ======================================================
-// 5. API/Controllers/UsersController.cs
-// არსებული GetByUserName ჩაანაცვლე:
-// ======================================================
-
-[HttpGet("by-username")]
-public async Task<ActionResult<List<UserInfoDto>>> GetByUserName(
-    [FromQuery] string? userName,
-    CancellationToken cancellationToken)
-{
-    if (string.IsNullOrWhiteSpace(userName))
-        return BadRequest("userName აუცილებელია.");
-
-    var users = await _userService.GetByUserNameAsync(
-        userName,
-        cancellationToken);
-
-    return Ok(users);
-}
+E91A26B0-A5C8-4C29-ADBC-000303DB38E2	ნინო ფირცხელანი	ef6898de09bc80ca5c7c0fcf427d658d	ნინო ფირცხელანი	0	01008022640		1	2012-10-12 19:15:58.303	240A8576-9630-4614-B483-916046CDF7A6	2016-07-11 14:16:50.460	E91A26B0-A5C8-4C29-ADBC-000303DB38E2	0x0000000000534089	0	NULL
