@@ -1,22 +1,38 @@
+using eMembership.Application.Abstractions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace eMembership.Api.Controllers;
+
+[ApiController]
+[Route("api/documents")]
+[Authorize]
+public sealed class DocumentsController : ControllerBase
 {
-  "ConnectionStrings": {
-    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;",
-    "Document": "Server=10.0.33.33;Database=eDocument;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
-  },
+    private readonly IDocumentRepository _documentRepository;
 
-  "Jwt": {
-    "Key": "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MINIMUM_32_CHARACTERS",
-    "Issuer": "eMembership.Api",
-    "Audience": "eMembership.Client"
-  },
-
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning",
-      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    public DocumentsController(
+        IDocumentRepository documentRepository)
+    {
+        _documentRepository = documentRepository;
     }
-  },
 
-  "AllowedHosts": "*"
+    /// <summary>
+    /// აბრუნებს გადმოცემული UserID-ის დოკუმენტებს.
+    ///
+    /// მაგალითად:
+    /// GET /api/documents/user/77CBA770-018B-4684-808B-EF3409385ED4
+    /// </summary>
+    [HttpGet("user/{userId:guid}")]
+    public async Task<IActionResult> GetUserDocuments(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var documents =
+            await _documentRepository.GetUserDocumentsAsync(
+                userId,
+                cancellationToken);
+
+        return Ok(documents);
+    }
 }
