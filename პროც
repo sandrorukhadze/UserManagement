@@ -1,162 +1,24 @@
-using System.Security.Cryptography;
-using System.Text;
-using eMembership.Application.Abstractions;
+USE [eMembership];
+GO
 
-namespace eMembership.Infrastructure.Authentication;
-
-public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
-{
-    public bool Verify(
-        string plainPassword,
-        string userName,
-        string passwordHash)
-    {
-        var dbHash = passwordHash.Trim();
-
-        Console.WriteLine();
-        Console.WriteLine("==========================================");
-        Console.WriteLine($"USER    : [{userName}]");
-        Console.WriteLine($"DB HASH : {dbHash}");
-        Console.WriteLine("==========================================");
-
-        //
-        // 1. ჩვეულებრივი:
-        // MD5(password + username)
-        //
-        var normalUtf8 = Md5Hex(
-            plainPassword + userName,
-            Encoding.UTF8);
-
-        //
-        // 2. ჯერ password-ის MD5,
-        // მერე მიღებული HEX + username
-        //
-        var passwordMd5Utf8 = Md5Hex(
-            plainPassword,
-            Encoding.UTF8);
-
-        var passwordMd5PlusUser = Md5Hex(
-            passwordMd5Utf8 + userName,
-            Encoding.UTF8);
-
-        //
-        // 3. password + username,
-        // შემდეგ მიღებული MD5 HEX მეორედ MD5
-        //
-        var firstHash = Md5Hex(
-            plainPassword + userName,
-            Encoding.UTF8);
-
-        var doubleMd5 = Md5Hex(
-            firstHash,
-            Encoding.UTF8);
-
-        //
-        // 4. username-ის MD5 + password
-        //
-        var userNameMd5 = Md5Hex(
-            userName,
-            Encoding.UTF8);
-
-        var userMd5PlusPassword = Md5Hex(
-            userNameMd5 + plainPassword,
-            Encoding.UTF8);
-
-        //
-        // 5. password + username-ის MD5
-        //
-        var passwordPlusUserMd5 = Md5Hex(
-            plainPassword + userNameMd5,
-            Encoding.UTF8);
-
-        //
-        // იგივე ვარიანტები UTF-16LE-ზე
-        //
-        var normalUnicode = Md5Hex(
-            plainPassword + userName,
-            Encoding.Unicode);
-
-        var passwordMd5Unicode = Md5Hex(
-            plainPassword,
-            Encoding.Unicode);
-
-        var passwordMd5PlusUserUnicode = Md5Hex(
-            passwordMd5Unicode + userName,
-            Encoding.Unicode);
-
-        var firstHashUnicode = Md5Hex(
-            plainPassword + userName,
-            Encoding.Unicode);
-
-        var doubleMd5Unicode = Md5Hex(
-            firstHashUnicode,
-            Encoding.Unicode);
-
-        var tests = new Dictionary<string, string>
-        {
-            ["MD5(password + username) UTF8"] =
-                normalUtf8,
-
-            ["MD5(MD5(password) + username) UTF8"] =
-                passwordMd5PlusUser,
-
-            ["MD5(MD5(password + username)) UTF8"] =
-                doubleMd5,
-
-            ["MD5(MD5(username) + password) UTF8"] =
-                userMd5PlusPassword,
-
-            ["MD5(password + MD5(username)) UTF8"] =
-                passwordPlusUserMd5,
-
-            ["MD5(password + username) Unicode"] =
-                normalUnicode,
-
-            ["MD5(MD5(password) + username) Unicode"] =
-                passwordMd5PlusUserUnicode,
-
-            ["MD5(MD5(password + username)) Unicode"] =
-                doubleMd5Unicode
-        };
-
-        foreach (var test in tests)
-        {
-            Console.WriteLine();
-            Console.WriteLine(test.Key);
-            Console.WriteLine($"    {test.Value}");
-
-            if (string.Equals(
-                    test.Value,
-                    dbHash,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                Console.WriteLine();
-                Console.WriteLine("***********************************");
-                Console.WriteLine("MATCH FOUND!");
-                Console.WriteLine(test.Key);
-                Console.WriteLine("***********************************");
-
-                return true;
-            }
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("NO MATCH FOUND");
-        Console.WriteLine("==========================================");
-
-        return false;
-    }
-
-    private static string Md5Hex(
-        string value,
-        Encoding encoding)
-    {
-        var bytes = encoding.GetBytes(value);
-
-        var hashBytes = MD5.HashData(bytes);
-
-        return Convert
-            .ToHexString(hashBytes)
-            .ToLowerInvariant();
-    }
-}
+SELECT
+    s.name AS [SchemaName],
+    t.name AS [TableName],
+    c.name AS [ColumnName],
+    ty.name AS [DataType]
+FROM sys.tables AS t
+INNER JOIN sys.schemas AS s
+    ON s.schema_id = t.schema_id
+INNER JOIN sys.columns AS c
+    ON c.object_id = t.object_id
+INNER JOIN sys.types AS ty
+    ON ty.user_type_id = c.user_type_id
+WHERE
+    t.name LIKE '%Appoint%'
+    OR c.name IN (
+        'UserID',
+        'AppointmentID',
+        'DepartmentID',
+        'DepID'
+    )
+ORDER BY s.name, t.name, c.column_id;
