@@ -1,6 +1,7 @@
 {
   "ConnectionStrings": {
-    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=S@ndro851;TrustServerCertificate=True;"
+    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;",
+    "Document": "Server=10.0.33.33;Database=eDocument;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
   },
 
   "Jwt": {
