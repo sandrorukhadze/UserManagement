@@ -19,7 +19,7 @@ SELECT TOP (100)
         d.InnerSubTypeID
     ) AS [ტიპი],
 
-    dbo.Fn_GetClientByDocumentID_Alex(d.ID) AS [კლიენტი],
+    CAST(NULL AS nvarchar(500)) AS [კლიენტი],
 
     ISNULL(
         dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
@@ -27,6 +27,7 @@ SELECT TOP (100)
     ) AS [ავტორი],
 
     bd.DocumentNumber AS [საფუძველი],
+
     dd.Content AS [შინაარსი]
 
 FROM eMembership.orgs.UserAppointments AS ua
