@@ -1,78 +1,41 @@
-using System.Security.Cryptography;
-using System.Text;
-using eMembership.Application.Abstractions;
-
-namespace eMembership.Infrastructure.Authentication;
-
-public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
+PS C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api> dotnet run
+Using launch settings from C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api\Properties\launchSettings.json...
+Building...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5273
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Api
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (22ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+--------------------------------
+DB Hash : 069494bc2386f0e7cef27cd1fbcc38e6
+UTF8    : 187af95b7698866c67b9705767cdcd06
+Unicode : 6ef00417c1485be8af75a47779b49e9d
+UTF16BE : f05c3a5c975e0636c2bfd598a1793f61
+--------------------------------
+PASSWORD HASH DOES NOT MATCH
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__userName_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [u].[ID], [u].[CreateDate], [u].[CreatedBy], [u].[EMail], [u].[FullName], [u].[Gender], [u].[IsActive], [u].[IsChancelleryAccount], [u].[IsFirstPassword], [u].[LastModifiedBy], [u].[LastModifyDate], [u].[Password], [u].[PrivateNumber], [u].[UserName], [u].[Version]
+      FROM [users].[Users] AS [u]
+      WHERE [u].[UserName] = @__userName_0
+--------------------------------
+DB Hash : cf7df1ca1b442d62cc7e20deea5f3b35
+UTF8    : 187af95b7698866c67b9705767cdcd06
+Unicode : 6ef00417c1485be8af75a47779b49e9d
+UTF16BE : f05c3a5c975e0636c2bfd598a1793f61
+--------------------------------
+PASSWORD HASH DOES NOT MATCH
 {
-    public bool Verify(
-        string plainPassword,
-        string passwordHash)
-    {
-        passwordHash = passwordHash.Trim();
-
-        var utf8 = CreateHash(
-            plainPassword,
-            Encoding.UTF8);
-
-        var unicode = CreateHash(
-            plainPassword,
-            Encoding.Unicode);
-
-        var bigEndian = CreateHash(
-            plainPassword,
-            Encoding.BigEndianUnicode);
-
-        Console.WriteLine("--------------------------------");
-        Console.WriteLine($"DB Hash : {passwordHash}");
-        Console.WriteLine($"UTF8    : {utf8}");
-        Console.WriteLine($"Unicode : {unicode}");
-        Console.WriteLine($"UTF16BE : {bigEndian}");
-        Console.WriteLine("--------------------------------");
-
-        if (string.Equals(
-                utf8,
-                passwordHash,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = UTF8");
-            return true;
-        }
-
-        if (string.Equals(
-                unicode,
-                passwordHash,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = Unicode UTF-16LE");
-            return true;
-        }
-
-        if (string.Equals(
-                bigEndian,
-                passwordHash,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Console.WriteLine("MATCH = UTF-16BE");
-            return true;
-        }
-
-        Console.WriteLine("PASSWORD HASH DOES NOT MATCH");
-
-        return false;
-    }
-
-    private static string CreateHash(
-        string password,
-        Encoding encoding)
-    {
-        var bytes = encoding.GetBytes(password);
-
-        var hashBytes = MD5.HashData(bytes);
-
-        return Convert
-            .ToHexString(hashBytes)
-            .ToLowerInvariant();
-    }
+  "userName": "დემეტრე ბარბაქაძე",
+  "password": "ემემბერშიფ@მვს4"
 }
