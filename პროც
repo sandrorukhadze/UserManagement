@@ -1,44 +1,11 @@
-USE [eMembership];
-GO
-
-SELECT
-    u.ID AS UserID,
-    u.UserName,
-    u.FullName,
-
-    ua.ID AS AppointmentID,
-    ua.IsActive AS AppointmentIsActive,
-    ua.BeginDate,
-    ua.FinishDate,
-
-    p.ID AS PositionID,
-    pt.Name AS PositionName,
-
-    os.ID AS OrganizationStructureID,
-    os.Name AS OrganizationStructureName,
-    os.ParentID,
-
-    parent.Name AS ParentStructureName
-
-FROM users.Users AS u
-
-INNER JOIN orgs.UserAppointments AS ua
-    ON ua.UserID = u.ID
-
-LEFT JOIN orgs.Positions AS p
-    ON p.ID = ua.PositionID
-
-LEFT JOIN orgs.PositionTypes AS pt
-    ON pt.ID = p.PositionTypeID
-
-LEFT JOIN orgs.OrganizationStructures AS os
-    ON os.ID = p.OrganizationStructureID
-
-LEFT JOIN orgs.OrganizationStructures AS parent
-    ON parent.ID = os.ParentID
-
-WHERE
-    u.UserName = N'ნინო კიკაბიძე'
-    OR u.FullName = N'ნინო კიკაბიძე'
-
-ORDER BY ua.BeginDate DESC, ua.ID;
+UserID	UserName	FullName	AppointmentID	AppointmentIsActive	BeginDate	FinishDate	PositionID	PositionName	OrganizationStructureID	OrganizationStructureName	ParentID	ParentStructureName
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	239D21C5-E375-488D-AA7C-1C8D33132457	1	2025-02-06	2025-02-17	D86F1E9B-EDD9-4EE0-B462-A43C1FDED51B	უფროსის მოვალეობის შემსრულებელი	97FA97D2-DDD1-4FDA-8FE9-D1AC2122F1DC	კახეთის სამედიცინო ექსპერტიზის განყოფილება	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	B2F8B341-388D-4BF7-AD68-AC6A478D1C6E	1	2023-09-29	2023-10-04	1DAC7748-AB9C-4C7F-BB40-51E876B3F519	უფროსის მოვალეობის შემსრულებელი	AFC7674E-CA7B-4790-9628-66913EA54D19	ცოცხალ პირთა და გვამების გამოკვლევათა სამმართველო	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	D3BBE420-277E-4138-BE20-653A516624D1	1	2022-08-08	2025-08-24	19FCCC68-076A-40FF-AE2F-5EB93E4ABE11	უფროსის მოვალეობის შემსრულებელი	D613B71E-9532-4B05-98E4-E2EF529F7987	ქვემო ქართლის სამედიცინო ექსპერტიზის განყოფილება	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	D2B5BAF3-C122-486F-9974-E26B4533B237	1	2013-11-08	NULL	02058878-5046-45A6-84FE-1E8375179744	უფროსი	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი	23D456D1-B4D0-4E2E-B661-7ACF2EB3482F	ბიურო
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	ACE6A9B2-6886-46FD-BB6B-3A028B43C587	1	2013-09-12	2016-07-25	BF14BDA2-B391-47AA-B1E4-AFAD6B1293DB	უფროსის მოვალეობის შემსრულებელი	AFC7674E-CA7B-4790-9628-66913EA54D19	ცოცხალ პირთა და გვამების გამოკვლევათა სამმართველო	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	9B32D983-6276-45FF-B6BC-517517E1F45D	0	2013-09-12	2013-09-12	19664D6C-DA0E-4CBB-AE20-A537747A28DA	უფროსი	AFC7674E-CA7B-4790-9628-66913EA54D19	ცოცხალ პირთა და გვამების გამოკვლევათა სამმართველო	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	EF3381A3-20EC-4ECD-9286-2E7E53E28F9E	1	2013-09-02	2013-12-27	73D12999-773D-4FE9-967B-34997F501E68	უფროსის მოვალეობის შემსრულებელი	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი	23D456D1-B4D0-4E2E-B661-7ACF2EB3482F	ბიურო
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	8B90C43F-F994-414A-A3F0-8065E392D039	1	2013-06-25	2013-08-19	EE01402D-B11E-42B3-B7FF-C2E2F2D2796B	უფროსის მოვალეობის შემსრულებელი	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი	23D456D1-B4D0-4E2E-B661-7ACF2EB3482F	ბიურო
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	52AD080F-3BDA-4FD4-8C68-C62D98B75E44	1	2013-01-16	2014-04-15	728A380E-A722-4DCE-BE0A-0D90F5D6561F	ექსპერტი	AFC7674E-CA7B-4790-9628-66913EA54D19	ცოცხალ პირთა და გვამების გამოკვლევათა სამმართველო	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
+77CBA770-018B-4684-808B-EF3409385ED4	ნინო კიკაბიძე	ნინო კიკაბიძე	6063774D-33E6-4472-A5EC-7EBF217BFCB2	1	2012-10-08	2017-01-04	1DC19B70-9FED-4B5E-80FE-5E80C3A9F90E	უფროსი	DF92B933-35AF-4F8A-8259-8AE151B75FD2	სამედიცინო-კრიმინალისტიკური ექსპერტიზის სამმართველო	C46E484A-5258-4226-B981-0AF22B7D0D2B	სამედიცინო ექსპერტიზის დეპარტამენტი
