@@ -1,0 +1,16 @@
+curl -X 'GET' \
+  'http://localhost:5226/api/users?userName=%E1%83%A1%E1%83%90%E1%83%9C%E1%83%93%E1%83%A0%E1%83%9D' \
+  -H 'accept: text/plain'
+
+http://localhost:5226/api/users?userName=%E1%83%A1%E1%83%90%E1%83%9C%E1%83%93%E1%83%A0%E1%83%9D
+	
+Error: Internal Server Error
+
+Response body
+Download
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+  "title": "An error occurred while processing your request.",
+  "status": 500,
+  "traceId": "00-4cf9f00dd896fccdc121e47a577b9561-908f75d4a1d94de7-00"
+}
