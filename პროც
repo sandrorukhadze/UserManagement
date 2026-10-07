@@ -1,12 +1,10 @@
 using eMembership.Application.Abstractions;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace eMembership.Api.Controllers;
 
 [ApiController]
 [Route("api/documents")]
-[Authorize]
 public sealed class DocumentsController : ControllerBase
 {
     private readonly IDocumentRepository _documentRepository;
@@ -20,7 +18,7 @@ public sealed class DocumentsController : ControllerBase
     /// <summary>
     /// აბრუნებს გადმოცემული UserID-ის დოკუმენტებს.
     ///
-    /// მაგალითად:
+    /// მაგალითი:
     /// GET /api/documents/user/77CBA770-018B-4684-808B-EF3409385ED4
     /// </summary>
     [HttpGet("user/{userId:guid}")]
