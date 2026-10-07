@@ -1,4 +1,53 @@
-SchemaName	TableName	ColumnName
+USE [eDocument];
+GO
+
+DECLARE @UserID UNIQUEIDENTIFIER =
+    '77CBA770-018B-4684-808B-EF3409385ED4';
+
+SELECT TOP (100)
+    d.DocumentNumber AS [ნომერი],
+    d.DocumentTypeID AS [ტიპი],
+    cid.ClientID AS [კლიენტი],
+    creator.FullName AS [ავტორი],
+    baseDoc.DocumentNumber AS [საფუძველი],
+    dd.Contents AS [შინაარსი]
+
+FROM dbo.Documents AS d
+
+LEFT JOIN dbo.DocumentDetails AS dd
+    ON dd.ID = d.ID
+
+LEFT JOIN dbo.Documents AS baseDoc
+    ON baseDoc.ID = d.BaseDocumentID
+
+LEFT JOIN eMembership.users.Users AS creator
+    ON creator.ID = d.CreatedBy
+
+LEFT JOIN dbo.ClientsInDocuments AS cid
+    ON cid.DocumentID = d.ID
+    AND cid.IsActive = 1
+
+WHERE d.IsActive = 1
+    AND EXISTS (
+        SELECT 1
+        FROM dbo.Movements AS m
+
+        INNER JOIN eMembership.orgs.UserAppointments AS ua
+            ON ua.ID = m.ToID
+
+        WHERE m.ThingID = d.ID
+            AND ua.UserID = @UserID
+            AND ua.IsActive = 1
+            AND ua.BeginDate <= CONVERT(date, GETDATE())
+            AND (
+                ua.FinishDate IS NULL
+                OR ua.FinishDate >= CONVERT(date, GETDATE())
+            )
+            AND m.IsActive = 1
+            AND m.Canceled = 0
+    )
+
+ORDER BY d.CreateDate DESC, d.ID;SchemaName	TableName	ColumnName
 dbo	AdditionalUsersInOrderDocuments	ID
 dbo	AdditionalUsersInOrderDocuments	DocumentID
 dbo	AdditionalUsersInOrderDocuments	ToID
