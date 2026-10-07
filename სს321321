@@ -1,1051 +1,1957 @@
-SELECT TOP (1000) [ID]
-      ,[UserName]
-      ,[Password]
-      ,[FullName]
-      ,[Gender]
-      ,[PrivateNumber]
-      ,[EMail]
-      ,[IsActive]
-      ,[CreateDate]
-      ,[CreatedBy]
-      ,[LastModifyDate]
-      ,[LastModifiedBy]
-      ,[Version]
-      ,[IsFirstPassword]
-      ,[IsChancelleryAccount]
-  FROM [eMembership].[users].[Users]
+# eMembership Login API
+## .NET 8 + Clean Architecture + Repository + JWT + SQL Server
 
+ეს პროექტი იყენებს არსებულ ბაზას:
 
-E91A26B0-A5C8-4C29-ADBC-000303DB38E2	ნინო ფირცხელანი	ef6898de09bc80ca5c7c0fcf427d658d	ნინო ფირცხელანი	0	01008022640		1	2012-10-12 19:15:58.303	240A8576-9630-4614-B483-916046CDF7A6	2016-07-11 14:16:50.460	E91A26B0-A5C8-4C29-ADBC-000303DB38E2	0x0000000000534089	0	NULL
+- SQL Server: `10.0.33.33`
+- Database: `eMembership`
+- Schema: `users`
+- Table: `Users`
+- Framework: `.NET 8`
+- ORM: `Entity Framework Core`
+- Authentication: `JWT`
+- Existing passwords: სავარაუდოდ `MD5`
 
+---
 
+# 1. პროექტის შექმნა
 
-USE [eDocument]
+გახსენით Terminal / PowerShell იმ folder-ში, სადაც პროექტის შექმნა გინდა.
+
+```bash
+mkdir eMembership
+cd eMembership
+```
+
+Solution:
+
+```bash
+dotnet new sln -n eMembership
+```
+
+ახლა ვქმნით 4 პროექტს.
+
+```bash
+dotnet new classlib -n eMembership.Domain -o src/eMembership.Domain --framework net8.0
+
+dotnet new classlib -n eMembership.Application -o src/eMembership.Application --framework net8.0
+
+dotnet new classlib -n eMembership.Infrastructure -o src/eMembership.Infrastructure --framework net8.0
+
+dotnet new webapi -n eMembership.Api -o src/eMembership.Api --framework net8.0 --use-controllers
+```
+
+Solution-ში დამატება:
+
+```bash
+dotnet sln add src/eMembership.Domain/eMembership.Domain.csproj
+
+dotnet sln add src/eMembership.Application/eMembership.Application.csproj
+
+dotnet sln add src/eMembership.Infrastructure/eMembership.Infrastructure.csproj
+
+dotnet sln add src/eMembership.Api/eMembership.Api.csproj
+```
+
+---
+
+# 2. Project References
+
+Dependency direction გვინდა ასეთი:
+
+```text
+Domain
+   ↑
+Application
+   ↑
+Infrastructure
+
+Application
+   ↑
+API
+
+Infrastructure
+   ↑
+API
+```
+
+Application-ს Domain სჭირდება:
+
+```bash
+dotnet add src/eMembership.Application/eMembership.Application.csproj reference src/eMembership.Domain/eMembership.Domain.csproj
+```
+
+Infrastructure-ს Application და Domain სჭირდება:
+
+```bash
+dotnet add src/eMembership.Infrastructure/eMembership.Infrastructure.csproj reference src/eMembership.Application/eMembership.Application.csproj
+
+dotnet add src/eMembership.Infrastructure/eMembership.Infrastructure.csproj reference src/eMembership.Domain/eMembership.Domain.csproj
+```
+
+API-ს Application და Infrastructure სჭირდება:
+
+```bash
+dotnet add src/eMembership.Api/eMembership.Api.csproj reference src/eMembership.Application/eMembership.Application.csproj
+
+dotnet add src/eMembership.Api/eMembership.Api.csproj reference src/eMembership.Infrastructure/eMembership.Infrastructure.csproj
+```
+
+---
+
+# 3. NuGet Packages
+
+## Infrastructure
+
+```bash
+dotnet add src/eMembership.Infrastructure package Microsoft.EntityFrameworkCore.SqlServer --version 8.0.22
+
+dotnet add src/eMembership.Infrastructure package Microsoft.EntityFrameworkCore.Design --version 8.0.22
+
+dotnet add src/eMembership.Infrastructure package Microsoft.Extensions.Configuration.Abstractions --version 8.0.0
+
+dotnet add src/eMembership.Infrastructure package System.IdentityModel.Tokens.Jwt
+```
+
+## API
+
+```bash
+dotnet add src/eMembership.Api package Microsoft.AspNetCore.Authentication.JwtBearer --version 8.0.22
+```
+
+Swagger თუ default Web API template-ში არ გაქვს:
+
+```bash
+dotnet add src/eMembership.Api package Swashbuckle.AspNetCore
+```
+
+---
+
+# 4. Folder Structure
+
+საბოლოოდ სტრუქტურა უნდა იყოს:
+
+```text
+eMembership/
+│
+├── eMembership.sln
+│
+└── src/
+    │
+    ├── eMembership.Domain/
+    │   ├── Entities/
+    │   │   └── User.cs
+    │   │
+    │   └── eMembership.Domain.csproj
+    │
+    ├── eMembership.Application/
+    │   ├── Abstractions/
+    │   │   ├── IUserRepository.cs
+    │   │   ├── IPasswordVerifier.cs
+    │   │   └── IJwtTokenService.cs
+    │   │
+    │   ├── Auth/
+    │   │   ├── LoginRequest.cs
+    │   │   ├── LoginResponse.cs
+    │   │   └── LoginService.cs
+    │   │
+    │   └── eMembership.Application.csproj
+    │
+    ├── eMembership.Infrastructure/
+    │   ├── Authentication/
+    │   │   ├── JwtTokenService.cs
+    │   │   └── LegacyMd5PasswordVerifier.cs
+    │   │
+    │   ├── Persistence/
+    │   │   └── MembershipDbContext.cs
+    │   │
+    │   ├── Repositories/
+    │   │   └── UserRepository.cs
+    │   │
+    │   └── eMembership.Infrastructure.csproj
+    │
+    └── eMembership.Api/
+        ├── Controllers/
+        │   ├── AuthController.cs
+        │   └── UsersController.cs
+        │
+        ├── Properties/
+        │   └── launchSettings.json
+        │
+        ├── appsettings.json
+        ├── appsettings.Development.json
+        ├── Program.cs
+        └── eMembership.Api.csproj
+```
+
+წაშალე template-იდან ზედმეტი ფაილები, მაგალითად:
+
+```text
+WeatherForecast.cs
+WeatherForecastController.cs
+Class1.cs
+```
+
+---
+
+# 5. DOMAIN
+
+## src/eMembership.Domain/Entities/User.cs
+
+```csharp
+namespace eMembership.Domain.Entities;
+
+/// <summary>
+/// წარმოადგენს eMembership ბაზის [users].[Users] ჩანაწერს.
+/// Domain entity-ში EF Core-ის dependency არ გვაქვს.
+/// </summary>
+public sealed class User
+{
+    public Guid ID { get; set; }
+
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Legacy სისტემაში შენახული password hash.
+    /// არსებული მნიშვნელობები სავარაუდოდ MD5-ია.
+    /// </summary>
+    public string Password { get; set; } = string.Empty;
+
+    public string? FullName { get; set; }
+
+    public bool Gender { get; set; }
+
+    public string? PrivateNumber { get; set; }
+
+    public string? EMail { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public DateTime CreateDate { get; set; }
+
+    public Guid CreatedBy { get; set; }
+
+    public DateTime? LastModifyDate { get; set; }
+
+    public Guid? LastModifiedBy { get; set; }
+
+    /// <summary>
+    /// SQL Server rowversion/timestamp.
+    /// </summary>
+    public byte[]? Version { get; set; }
+
+    public bool IsFirstPassword { get; set; }
+
+    public bool? IsChancelleryAccount { get; set; }
+}
+```
+
+---
+
+# 6. APPLICATION
+
+Application layer-ში გვაქვს business logic და interfaces.
+
+Application არ უნდა იცნობდეს:
+
+- SQL Server-ს
+- EF Core-ს
+- MD5 implementation-ს
+- JWT implementation-ს
+- Infrastructure-ს
+
+---
+
+## src/eMembership.Application/Abstractions/IUserRepository.cs
+
+```csharp
+using eMembership.Domain.Entities;
+
+namespace eMembership.Application.Abstractions;
+
+/// <summary>
+/// User data-access contract.
+/// Implementation Infrastructure layer-ში იქნება.
+/// </summary>
+public interface IUserRepository
+{
+    Task<User?> GetByUserNameAsync(
+        string userName,
+        CancellationToken cancellationToken = default);
+}
+```
+
+---
+
+## src/eMembership.Application/Abstractions/IPasswordVerifier.cs
+
+```csharp
+namespace eMembership.Application.Abstractions;
+
+/// <summary>
+/// Password-ის შემოწმების abstraction.
+///
+/// Application-ს არ აინტერესებს MD5 გამოიყენება,
+/// BCrypt, PBKDF2 თუ სხვა ალგორითმი.
+/// </summary>
+public interface IPasswordVerifier
+{
+    bool Verify(
+        string plainPassword,
+        string passwordHash);
+}
+```
+
+---
+
+## src/eMembership.Application/Abstractions/IJwtTokenService.cs
+
+```csharp
+using eMembership.Domain.Entities;
+
+namespace eMembership.Application.Abstractions;
+
+/// <summary>
+/// JWT Token generator abstraction.
+/// </summary>
+public interface IJwtTokenService
+{
+    string GenerateToken(User user);
+}
+```
+
+---
+
+## src/eMembership.Application/Auth/LoginRequest.cs
+
+```csharp
+namespace eMembership.Application.Auth;
+
+/// <summary>
+/// Login endpoint-ის input model.
+/// </summary>
+public sealed record LoginRequest(
+    string UserName,
+    string Password);
+```
+
+---
+
+## src/eMembership.Application/Auth/LoginResponse.cs
+
+```csharp
+namespace eMembership.Application.Auth;
+
+/// <summary>
+/// წარმატებული login-ის response.
+/// </summary>
+public sealed record LoginResponse(
+    Guid UserId,
+    string UserName,
+    string? FullName,
+    string Token);
+```
+
+---
+
+## src/eMembership.Application/Auth/LoginService.cs
+
+```csharp
+using eMembership.Application.Abstractions;
+
+namespace eMembership.Application.Auth;
+
+/// <summary>
+/// Login-ის business logic.
+///
+/// აქ არ გვაქვს:
+/// - DbContext
+/// - EF Core
+/// - MD5
+/// - JwtSecurityToken
+///
+/// ყველაფერი abstraction-ის უკანაა.
+/// </summary>
+public sealed class LoginService
+{
+    private readonly IUserRepository _userRepository;
+    private readonly IPasswordVerifier _passwordVerifier;
+    private readonly IJwtTokenService _jwtTokenService;
+
+    public LoginService(
+        IUserRepository userRepository,
+        IPasswordVerifier passwordVerifier,
+        IJwtTokenService jwtTokenService)
+    {
+        _userRepository = userRepository;
+        _passwordVerifier = passwordVerifier;
+        _jwtTokenService = jwtTokenService;
+    }
+
+    public async Task<LoginResponse?> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        // Basic validation.
+        if (string.IsNullOrWhiteSpace(request.UserName))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(request.Password))
+        {
+            return null;
+        }
+
+        // UserName-ს ვასუფთავებთ ზედმეტი space-ებისგან.
+        var userName = request.UserName.Trim();
+
+        // Repository-დან მომხმარებლის მოძებნა.
+        var user = await _userRepository.GetByUserNameAsync(
+            userName,
+            cancellationToken);
+
+        // Security მიზეზით API-ში არ ვარჩევთ
+        // "User not found" და "Wrong password".
+        if (user is null)
+        {
+            return null;
+        }
+
+        // გათიშული account-ით login აკრძალულია.
+        if (!user.IsActive)
+        {
+            return null;
+        }
+
+        // Legacy password hash-ის შემოწმება.
+        var passwordIsValid = _passwordVerifier.Verify(
+            request.Password,
+            user.Password);
+
+        if (!passwordIsValid)
+        {
+            return null;
+        }
+
+        // თუ username/password სწორია,
+        // ვქმნით JWT access token-ს.
+        var token = _jwtTokenService.GenerateToken(user);
+
+        return new LoginResponse(
+            UserId: user.ID,
+            UserName: user.UserName,
+            FullName: user.FullName,
+            Token: token);
+    }
+}
+```
+
+---
+
+# 7. INFRASTRUCTURE
+
+აქ გვაქვს:
+
+- Entity Framework Core
+- SQL Server
+- Repository implementation
+- Legacy MD5
+- JWT implementation
+
+---
+
+# 8. DbContext
+
+## src/eMembership.Infrastructure/Persistence/MembershipDbContext.cs
+
+```csharp
+using eMembership.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace eMembership.Infrastructure.Persistence;
+
+/// <summary>
+/// eMembership SQL Server database context.
+/// </summary>
+public sealed class MembershipDbContext : DbContext
+{
+    public MembershipDbContext(
+        DbContextOptions<MembershipDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<User> Users => Set<User>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        ConfigureUsers(modelBuilder);
+    }
+
+    private static void ConfigureUsers(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<User>();
+
+        // SQL table:
+        //
+        // [eMembership].[users].[Users]
+        //
+        // Database-ს connection string განსაზღვრავს,
+        // ამიტომ აქ მხოლოდ schema/table გვჭირდება.
+        entity.ToTable(
+            name: "Users",
+            schema: "users");
+
+        entity.HasKey(x => x.ID);
+
+        entity.Property(x => x.ID)
+            .HasColumnName("ID");
+
+        entity.Property(x => x.UserName)
+            .HasColumnName("UserName");
+
+        entity.Property(x => x.Password)
+            .HasColumnName("Password");
+
+        entity.Property(x => x.FullName)
+            .HasColumnName("FullName");
+
+        entity.Property(x => x.Gender)
+            .HasColumnName("Gender");
+
+        entity.Property(x => x.PrivateNumber)
+            .HasColumnName("PrivateNumber");
+
+        entity.Property(x => x.EMail)
+            .HasColumnName("EMail");
+
+        entity.Property(x => x.IsActive)
+            .HasColumnName("IsActive");
+
+        entity.Property(x => x.CreateDate)
+            .HasColumnName("CreateDate");
+
+        entity.Property(x => x.CreatedBy)
+            .HasColumnName("CreatedBy");
+
+        entity.Property(x => x.LastModifyDate)
+            .HasColumnName("LastModifyDate");
+
+        entity.Property(x => x.LastModifiedBy)
+            .HasColumnName("LastModifiedBy");
+
+        entity.Property(x => x.Version)
+            .HasColumnName("Version")
+            .IsRowVersion();
+
+        entity.Property(x => x.IsFirstPassword)
+            .HasColumnName("IsFirstPassword");
+
+        entity.Property(x => x.IsChancelleryAccount)
+            .HasColumnName("IsChancelleryAccount");
+    }
+}
+```
+
+---
+
+# 9. User Repository
+
+## src/eMembership.Infrastructure/Repositories/UserRepository.cs
+
+```csharp
+using eMembership.Application.Abstractions;
+using eMembership.Domain.Entities;
+using eMembership.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace eMembership.Infrastructure.Repositories;
+
+/// <summary>
+/// IUserRepository-ის SQL Server / EF Core implementation.
+/// </summary>
+public sealed class UserRepository : IUserRepository
+{
+    private readonly MembershipDbContext _dbContext;
+
+    public UserRepository(MembershipDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public Task<User?> GetByUserNameAsync(
+        string userName,
+        CancellationToken cancellationToken = default)
+    {
+        // Login-ის დროს entity-ს შეცვლას არ ვაპირებთ,
+        // ამიტომ AsNoTracking() უფრო ეფექტურია.
+        return _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                user => user.UserName == userName,
+                cancellationToken);
+    }
+}
+```
+
+---
+
+# 10. Legacy MD5 Password Verification
+
+შენ გაქვს მსგავსი password hash:
+
+```text
+ef6898de09bc80ca5c7c0fcf427d658d
+```
+
+ეს არის:
+
+```text
+32 hexadecimal characters
+```
+
+რაც ძალიან ჰგავს MD5-ს.
+
+მაგრამ 100%-ით მხოლოდ hash-ის სიგრძიდან ვერ ვიტყვით.
+
+ძველი სისტემის რეალური password თუ იცი, შეგიძლია შეამოწმო.
+
+---
+
+## src/eMembership.Infrastructure/Authentication/LegacyMd5PasswordVerifier.cs
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+using eMembership.Application.Abstractions;
+
+namespace eMembership.Infrastructure.Authentication;
+
+/// <summary>
+/// Legacy MD5 password verifier.
+///
+/// IMPORTANT:
+/// MD5 ახალი password-ებისთვის უსაფრთხო არ არის.
+///
+/// ეს implementation მხოლოდ იმისთვის არსებობს,
+/// რომ ძველი eMembership database-ის users-მა
+/// არსებული password-ებით login შეძლონ.
+/// </summary>
+public sealed class LegacyMd5PasswordVerifier : IPasswordVerifier
+{
+    public bool Verify(
+        string plainPassword,
+        string passwordHash)
+    {
+        if (string.IsNullOrEmpty(plainPassword))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            return false;
+        }
+
+        // ამ ვერსიაში ვვარაუდობთ, რომ legacy პროგრამა
+        // password-ს UTF-8 bytes-ად გარდაქმნიდა.
+        var passwordBytes = Encoding.UTF8.GetBytes(
+            plainPassword);
+
+        // MD5 hash.
+        var hashBytes = MD5.HashData(passwordBytes);
+
+        // SQL-ში შენახული ფორმატი არის lowercase hex:
+        //
+        // ef6898de09bc80ca5c7c0fcf427d658d
+        var calculatedHash = Convert
+            .ToHexString(hashBytes)
+            .ToLowerInvariant();
+
+        return string.Equals(
+            calculatedHash,
+            passwordHash.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+    }
+}
+```
+
+---
+
+# 11. JWT Token Service
+
+## src/eMembership.Infrastructure/Authentication/JwtTokenService.cs
+
+```csharp
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using eMembership.Application.Abstractions;
+using eMembership.Domain.Entities;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+
+namespace eMembership.Infrastructure.Authentication;
+
+/// <summary>
+/// ქმნის JWT access token-ს წარმატებული login-ის შემდეგ.
+/// </summary>
+public sealed class JwtTokenService : IJwtTokenService
+{
+    private readonly IConfiguration _configuration;
+
+    public JwtTokenService(
+        IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public string GenerateToken(User user)
+    {
+        var key = _configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException(
+                "Jwt:Key is not configured.");
+
+        var issuer = _configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException(
+                "Jwt:Issuer is not configured.");
+
+        var audience = _configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException(
+                "Jwt:Audience is not configured.");
+
+        var claims = new List<Claim>
+        {
+            // JWT standard subject.
+            new(
+                JwtRegisteredClaimNames.Sub,
+                user.ID.ToString()),
+
+            // ASP.NET Identity style User ID.
+            new(
+                ClaimTypes.NameIdentifier,
+                user.ID.ToString()),
+
+            // Logged-in user's username.
+            new(
+                ClaimTypes.Name,
+                user.UserName),
+
+            // Unique token ID.
+            new(
+                JwtRegisteredClaimNames.Jti,
+                Guid.NewGuid().ToString())
+        };
+
+        // FullName თუ გვაქვს, JWT-ში ჩავდოთ.
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+        {
+            claims.Add(
+                new Claim(
+                    "full_name",
+                    user.FullName));
+        }
+
+        // PrivateNumber token-ში შეგნებულად არ ჩაგვიდია.
+        // პერსონალური ინფორმაცია JWT-ში ზედმეტად არ შეინახო.
+
+        var signingKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(key));
+
+        var signingCredentials = new SigningCredentials(
+            signingKey,
+            SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+
+            // Access token-ის მოქმედების ვადა.
+            expires: DateTime.UtcNow.AddHours(8),
+
+            signingCredentials: signingCredentials);
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
+    }
+}
+```
+
+---
+
+# 12. API - Auth Controller
+
+## src/eMembership.Api/Controllers/AuthController.cs
+
+```csharp
+using eMembership.Application.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace eMembership.Api.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController : ControllerBase
+{
+    private readonly LoginService _loginService;
+
+    public AuthController(
+        LoginService loginService)
+    {
+        _loginService = loginService;
+    }
+
+    /// <summary>
+    /// მომხმარებლის ავტორიზაცია.
+    ///
+    /// POST /api/auth/login
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("login")]
+    public async Task<ActionResult<LoginResponse>> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _loginService.LoginAsync(
+            request,
+            cancellationToken);
+
+        if (result is null)
+        {
+            // შეგნებულად არ ვამბობთ:
+            //
+            // "user doesn't exist"
+            // ან
+            // "wrong password"
+            //
+            // რადგან attacker-ს account enumeration
+            // არ გავუადვილოთ.
+            return Unauthorized(new
+            {
+                message = "Invalid username or password."
+            });
+        }
+
+        return Ok(result);
+    }
+}
+```
+
+---
+
+# 13. Protected endpoint
+
+ეს endpoint იმისთვის გვჭირდება, რომ შევამოწმოთ JWT მუშაობს თუ არა.
+
+## src/eMembership.Api/Controllers/UsersController.cs
+
+```csharp
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace eMembership.Api.Controllers;
+
+[ApiController]
+[Route("api/users")]
+[Authorize]
+public sealed class UsersController : ControllerBase
+{
+    /// <summary>
+    /// აბრუნებს ამჟამად authenticated user-ის ინფორმაციას.
+    ///
+    /// GET /api/users/me
+    ///
+    /// საჭიროა:
+    ///
+    /// Authorization: Bearer TOKEN
+    /// </summary>
+    [HttpGet("me")]
+    public IActionResult Me()
+    {
+        var userId = User.FindFirstValue(
+            ClaimTypes.NameIdentifier);
+
+        var userName = User.FindFirstValue(
+            ClaimTypes.Name);
+
+        var fullName = User.FindFirstValue(
+            "full_name");
+
+        return Ok(new
+        {
+            userId,
+            userName,
+            fullName
+        });
+    }
+}
+```
+
+---
+
+# 14. appsettings.json
+
+## src/eMembership.Api/appsettings.json
+
+თუ SQL Login გაქვს:
+
+```json
+{
+  "ConnectionStrings": {
+    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;TrustServerCertificate=True;"
+  },
+
+  "Jwt": {
+    "Key": "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MINIMUM_32_CHARACTERS",
+    "Issuer": "eMembership.Api",
+    "Audience": "eMembership.Client"
+  },
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+
+  "AllowedHosts": "*"
+}
+```
+
+შეცვალე:
+
+```text
+YOUR_SQL_USER
+```
+
+და
+
+```text
+YOUR_SQL_PASSWORD
+```
+
+რეალური SQL credentials-ით.
+
+---
+
+# 15. Windows Authentication ვარიანტი
+
+თუ SQL Server-ზე Windows Authentication გაქვს, connection string იქნება:
+
+```json
+{
+  "ConnectionStrings": {
+    "Membership": "Server=10.0.33.33;Database=eMembership;Integrated Security=True;TrustServerCertificate=True;"
+  }
+}
+```
+
+SQL Login და Windows Auth ერთდროულად არ გამოიყენო.
+
+---
+
+# 16. Development Secrets
+
+რეალურ პროექტში DB password და JWT key repository-ში არ შეინახო.
+
+Development-ზე შეგიძლია გამოიყენო User Secrets.
+
+გადადით API პროექტში:
+
+```bash
+cd src/eMembership.Api
+```
+
+User Secrets initialize:
+
+```bash
+dotnet user-secrets init
+```
+
+Connection string:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Membership" "Server=10.0.33.33;Database=eMembership;User Id=YOUR_USER;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
+```
+
+JWT secret:
+
+```bash
+dotnet user-secrets set "Jwt:Key" "PUT-A-LONG-RANDOM-DEVELOPMENT-SECRET-HERE-123456789"
+```
+
+უკან root folder-ში:
+
+```bash
+cd ../..
+```
+
+---
+
+# 17. Program.cs
+
+## src/eMembership.Api/Program.cs
+
+```csharp
+using System.Text;
+using eMembership.Application.Abstractions;
+using eMembership.Application.Auth;
+using eMembership.Infrastructure.Authentication;
+using eMembership.Infrastructure.Persistence;
+using eMembership.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
+var builder = WebApplication.CreateBuilder(args);
+
+//
+// Controllers
+//
+builder.Services.AddControllers();
+
+//
+// Swagger
+//
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+//
+// ==========================================================
+// DATABASE
+// ==========================================================
+//
+
+var membershipConnectionString =
+    builder.Configuration.GetConnectionString("Membership")
+    ?? throw new InvalidOperationException(
+        "Connection string 'Membership' was not found.");
+
+builder.Services.AddDbContext<MembershipDbContext>(
+    options =>
+    {
+        options.UseSqlServer(
+            membershipConnectionString);
+    });
+
+//
+// ==========================================================
+// DEPENDENCY INJECTION
+// ==========================================================
+//
+
+// Repository
+builder.Services.AddScoped<
+    IUserRepository,
+    UserRepository>();
+
+// Legacy MD5 verification
+builder.Services.AddScoped<
+    IPasswordVerifier,
+    LegacyMd5PasswordVerifier>();
+
+// JWT generator
+builder.Services.AddScoped<
+    IJwtTokenService,
+    JwtTokenService>();
+
+// Application service
+builder.Services.AddScoped<LoginService>();
+
+//
+// ==========================================================
+// JWT AUTHENTICATION
+// ==========================================================
+//
+
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Key is not configured.");
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Issuer is not configured.");
+
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Audience is not configured.");
+
+builder.Services
+    .AddAuthentication(
+        JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                // ვინ შექმნა token
+                ValidateIssuer = true,
+
+                // ვისთვისაა token
+                ValidateAudience = true,
+
+                // ვადა ხომ არ გაუვიდა
+                ValidateLifetime = true,
+
+                // signature სწორია თუ არა
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = jwtIssuer,
+
+                ValidAudience = jwtAudience,
+
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtKey)),
+
+                // Default 5 წუთია.
+                // აქ ზუსტად expiration გვინდა.
+                ClockSkew = TimeSpan.Zero
+            };
+    });
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+//
+// ==========================================================
+// HTTP PIPELINE
+// ==========================================================
+//
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+//
+// ძალიან მნიშვნელოვანია რიგითობა:
+//
+// Authentication ჯერ
+// Authorization შემდეგ
+//
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+```
+
+---
+
+# 18. Build
+
+Root folder-ში:
+
+```bash
+dotnet restore
+```
+
+შემდეგ:
+
+```bash
+dotnet build
+```
+
+თუ ყველაფერი სწორია, უნდა მიიღო:
+
+```text
+Build succeeded.
+```
+
+---
+
+# 19. API გაშვება
+
+```bash
+dotnet run --project src/eMembership.Api
+```
+
+ან watch mode:
+
+```bash
+dotnet watch --project src/eMembership.Api
+```
+
+Terminal-ში გამოჩნდება დაახლოებით:
+
+```text
+Now listening on: https://localhost:7xxx
+Now listening on: http://localhost:5xxx
+```
+
+Swagger შეგიძლია გახსნა:
+
+```text
+https://localhost:7xxx/swagger
+```
+
+პორტი შენთან შეიძლება განსხვავებული იყოს.
+
+---
+
+# 20. Login Request
+
+Endpoint:
+
+```text
+POST /api/auth/login
+```
+
+JSON:
+
+```json
+{
+  "userName": "ნინო ფირცხელანი",
+  "password": "REAL_PASSWORD_HERE"
+}
+```
+
+თუ ყველაფერი სწორია, response დაახლოებით ასეთი იქნება:
+
+```json
+{
+  "userId": "e91a26b0-a5c8-4c29-adbc-000303db38e2",
+  "userName": "ნინო ფირცხელანი",
+  "fullName": "ნინო ფირცხელანი",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+---
+
+# 21. Wrong password response
+
+```http
+HTTP 401 Unauthorized
+```
+
+```json
+{
+  "message": "Invalid username or password."
+}
+```
+
+იგივე response მოდის თუ:
+
+- user არ არსებობს;
+- password არასწორია;
+- user inactive-ია.
+
+ეს security-სთვის უკეთესია.
+
+---
+
+# 22. JWT-ის შემოწმება
+
+Login response-დან აიღე:
+
+```text
+token
+```
+
+შემდეგ გამოიძახე:
+
+```text
+GET /api/users/me
+```
+
+Header:
+
+```http
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+მაგალითად:
+
+```http
+GET /api/users/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+Response:
+
+```json
+{
+  "userId": "e91a26b0-a5c8-4c29-adbc-000303db38e2",
+  "userName": "ნინო ფირცხელანი",
+  "fullName": "ნინო ფირცხელანი"
+}
+```
+
+---
+
+# 23. cURL Login Test
+
+მაგალითად API მუშაობს:
+
+```text
+https://localhost:7001
+```
+
+მაშინ:
+
+```bash
+curl -X POST "https://localhost:7001/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"userName\":\"ნინო ფირცხელანი\",\"password\":\"REAL_PASSWORD\"}"
+```
+
+PowerShell-ზე შეგიძლია გამოიყენო:
+
+```powershell
+$body = @{
+    userName = "ნინო ფირცხელანი"
+    password = "REAL_PASSWORD"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "https://localhost:7001/api/auth/login" `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+---
+
+# 24. SQL-ით User-ის შემოწმება
+
+SQL Server Management Studio-ში:
+
+```sql
+USE [eMembership];
 GO
-/****** Object:  StoredProcedure [dbo].[ust_Shemosuli2ForTest]    Script Date: 10/7/2026 6:12:33 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 
-ALTER PROCEDURE [dbo].[ust_Shemosuli2ForTest]
-    @appoID UNIQUEIDENTIFIER ,
-    @userID UNIQUEIDENTIFIER ,
-    @TypeID INT ,
-    @OrgID UNIQUEIDENTIFIER ,
-    @DepID UNIQUEIDENTIFIER ,
-    @LoadingStage BIT ,
-    @Done BIT ,
-    @IsSenior BIT ,
-    @StartRowIndex INT ,
-    @LastRowIndex INT
-AS 
-    BEGIN
+SELECT
+    [ID],
+    [UserName],
+    [Password],
+    [FullName],
+    [Gender],
+    [PrivateNumber],
+    [EMail],
+    [IsActive],
+    [CreateDate],
+    [CreatedBy],
+    [LastModifyDate],
+    [LastModifiedBy],
+    [Version],
+    [IsFirstPassword],
+    [IsChancelleryAccount]
+FROM [users].[Users]
+WHERE [UserName] = N'ნინო ფირცხელანი';
+```
 
-	-- Andro Add Year
-	DECLARE @StartDateValue DATETIME;
-	DECLARE @EndDateValue DATETIME;
-	DECLARE @SelectedYear INT;
-	SET @SelectedYear = (SELECT TOP (1) SelectedYear FROM [dbo].[UsersSelectedDocuments] WITH (NOLOCK) WHERE AppointmentID = @appoID);
-	IF @SelectedYear IS NULL OR @SelectedYear = 0 OR @SelectedYear = 1
-	BEGIN
-		SET @StartDateValue = CONVERT(datetime, '2012-01-01') -- Edoc Start Date
-		SET @EndDateValue = SYSDATETIME() -- End Date Now
-	END
-	ELSE
-	BEGIN
-			IF @SelectedYear = 2
-			BEGIN
-			SET @StartDateValue = CONVERT(datetime, '2025-01-01')
-			SET @EndDateValue = SYSDATETIME()
-			END
-			ELSE
-			BEGIN
-		SET @StartDateValue = CONVERT(datetime, convert(varchar(4), @SelectedYear))
-		SET @EndDateValue = CONVERT(datetime, convert(varchar(4), @SelectedYear + 1))
-			END
-	END
+შენთან ჩანაწერი დაახლოებით ასეთია:
 
-	IF @SelectedYear = 1
-	BEGIN
-	        SELECT  ID ,
-                DocumentNumber ,
-                CreateDate ,
-                BaseDocument ,
-                ServiceName ,
-                CreatedByID ,
-                Term ,
-                DocumentTypeID ,
-                documentType ,
-                CanEdit ,
-                CanEditDocument ,
-                CanDelete ,
-                ReportType ,
-                lastEditDate ,
-                specdate ,
-                Status ,
-                LastOperation ,
-                movedimage ,
-                isUnReaded ,
-                Client ,
-                leftedDaysString ,
-                isCarrefull ,
-                withAttachment ,
-                HasNote ,
-                needsAttachment ,
-                isExecutedByExpert ,
-                isPrinted ,
-                isUnPrinted ,
-                CreatedBy ,
-                EditPath ,
-                SignaturedBy ,
-                BranchName ,
-                CountOfAddItems ,
-                Content ,
-                IsFromCourier ,
-                [RowCount]
-        FROM    ( SELECT    d.ID ,
-                            ISNULL(d.DocumentNumber, '') AS DocumentNumber ,
-                            d.CreateDate ,
-                            ISNULL(bd.DocumentNumber, '') AS BaseDocument ,
-                            CASE WHEN ISNULL(dd.serviceid, bd.ServiceID) = '471BA814-0D68-4F4B-9FFF-B18446E1F7F4'
-                                 THEN 'Red'
-                                 ELSE 'Black'
-                            END AS ServiceName ,
-                            CASE WHEN d.DocumentTypeID IN ( 11, 12 )
-                                 THEN d.AuthorID
-                                 ELSE dd.FromID
-                            END AS CreatedByID ,
-                            ISNULL(dd.Term, 0) AS Term ,
-                            d.DocumentTypeID ,
-                            dbo.getdoctype(d.DocumentTypeID, dd.DetailTypeID,
-                                           d.RequestType, DD.InnerType,
-                                           DD.LetterType, d.IsTechReport, d.IsAutoCrim, bd.IsAutoCrim, d.InnerSubTypeID) AS documentType ,
-                            CASE WHEN d.CreatedBy != @userID THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 5
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 5
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
-                                 THEN 'none'
-                                 WHEN ( d.CreatedBy = @userID )
-                                      AND ( d.DocumentTypeID != 11
-                                            OR d.AuthorID = @appoID
-                                          )
-                                      AND d.DocumentTypeID != 2
-                                      AND d.DocumentTypeID != 3
-                                      AND d.DocumentTypeID != 14
-                                      AND d.DocumentTypeID != 5
-                                      AND ( d.IsSignatured = 0
-                                            OR d.IsSignatured IS NULL
-                                          )
-                                      AND ( ml.ID IS NULL
-                                            OR ml.canceled = 1
-                                            OR ml.ToID = @appoID
-                                            AND ml.ToID = d.AuthorID --Created Paata
-                                            AND d.DocumentTypeID != 6
-                                            OR d.ExpTypeID = 3
-                                            AND ( ms.ID IS NULL
-                                                  OR ms.Canceled = 1
-                                                )
-                                            AND ( mm.ID IS NULL
-                                                  OR mm.canceled = 1
-                                                )
-                                          ) THEN 'inline'
-                                 ELSE 'none'
-                            END AS CanEdit ,
-                            CASE
-							WHEN d.IsAutoCrim = 1 AND EXISTS ( SELECT 1
-											FROM [dbo].[Conclusions] WITH ( NOLOCK )
-											WHERE DocumentID = d.ID AND IsActive = 1
-										) THEN CONVERT(BIT, 0)
-							WHEN d.CreatedBy = @userID
-                                      AND ( ( d.DocumentTypeID = 2
-                                              AND ( ml.ID IS NULL
-                                                    OR ml.canceled = 1
-                                                    OR ml.MovementTypeID = 2
-                                                  )
-                                            )
-                                            OR ( d.DocumentTypeID IN ( 3, 14 )
-                                                 AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                               )
-                                          ) THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS CanEditDocument ,
-                            CASE WHEN d.CreatedBy != @userID THEN 'none'
-                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                 THEN 'inline'
-                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
-                                 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 1 THEN 'none'
-                                 WHEN ( ( d.CreatedBy = @userID )
-                                        AND ( d.DocumentTypeID != 11
-                                              OR d.AuthorID = @appoID --Created Paata
-                                              
-                                            )
-                                        AND ( d.IsSignatured = 0
-                                              OR d.IsSignatured IS NULL
-                                            )
-                                        AND ( ml.ID IS NULL
-                                              OR ml.canceled = 1
-                                              OR ml.ToID = @appoID
-                                              AND ml.ToID = d.AuthorID --Created Paata
-                                              AND ( ( dd.InnerType != 4 )
-                                                    AND ( ms.MovementTypeID = 2
-                                                          OR mm.MovementTypeID = 2
-                                                        )
-                                                  )
-                                              AND d.DocumentTypeID != 2
-                                              OR d.ExpTypeID = 3
-                                              AND ( ms.ID IS NULL
-                                                    OR ms.Canceled = 1
-                                                  )
-                                              AND ( mm.ID IS NULL
-                                                    OR mm.canceled = 1
-                                                  )
-                                            )
-                                      ) THEN 'inline'
-                                 ELSE 'none'
-                            END AS CanDelete ,
-                            CASE WHEN d.DocumentTypeID = 11 THEN 'Conclusion'
-                                 WHEN d.DocumentTypeID = 12 THEN 'Contract'
-                                 ELSE 'Document'
-                            END AS ReportType ,
-                            CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                      AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                 THEN ml.RegistrationDate
-                                 WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ml.RegistrationDate
-                                      AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                 dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                 THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                 ELSE ISNULL(d.LastModifyDate, d.CreateDate)
-                            END AS lastEditDate ,
-                            [dbo].[getspecdate](CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                                          AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                     THEN ml.RegistrationDate
-                                                     WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ml.RegistrationDate
-                                                          AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                     THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                                     ELSE ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                END) AS specdate ,
-                            CASE WHEN mm.ID IS NULL
-                                 THEN [dbo].[getLastOperation](d.DocumentTypeID,
-                                                              d.IsSent,
-                                                              d.IsOff, ml.id,
-                                                              ml.MovementTypeID,
-                                                              ml.FromID,
-                                                              ml.ToID,
-                                                              ml.Approved,
-                                                              ml.Canceled,
-                                                              ml.RegistrationDate)
-                                 ELSE [dbo].[getstatus](d.DocumentTypeID,
-                                                        d.IsSent, d.IsOff,
-                                                        ml.id,
-                                                        mm.MovementTypeID,
-                                                        mm.FromID, mm.ToID,
-                                                        mm.Approved,
-                                                        mm.Canceled, @appoID)
-                            END AS [Status] ,
-                            [dbo].[getLastOperation](d.DocumentTypeID,
-                                                     d.IsSent, d.IsOff, ml.id,
-                                                     ml.MovementTypeID,
-                                                     ml.FromID, ml.ToID,
-                                                     ml.Approved, ml.Canceled,
-                                                     ml.RegistrationDate) AS LastOperation ,
-                            CASE WHEN mm.Canceled = 1 THEN 'canceled'
-                                 WHEN ms.Approved = 1
-                                      AND ml.id = ms.id THEN 'signatured'
-                                 ELSE ( CASE WHEN mm.FromID = @appoID
-                                             THEN 'moved'
-                                             WHEN mm.ToID = @appoID
-                                                  AND mm.IsReaded = 0
-                                             THEN 'unread'
-                                             ELSE 'read'
-                                        END )
-                            END AS movedimage ,
-                            CASE WHEN mm.ToID = @appoID
-                                      AND mm.IsReaded = 0 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isUnReaded ,
-                            dbo.Fn_GetClientByDocumentID_Alex(d.ID) AS Client ,
-                            [dbo].[getmaxdate](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                      dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)),
-                                               ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                      dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              NULL)), d.IsSent,
-                                               d.IsOff, bd.IsSent, bd.IsOff,
-                                               mm.ToID, mm.Approved, @appoID,
-                                               ISNULL(ml.Approved,
-                                                      d.IsSignatured),
-                                               d.DocumentTypeID) AS leftedDaysString ,
-                            [dbo].[IsDocCarrefull](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                          dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)),
-                                                   ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                          dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              NULL)), d.IsSent,
-                                                   d.IsOff, bd.IsSent,
-                                                   bd.IsOff, mm.ToID,
-                                                   mm.Approved, @appoID,
-                                                   ISNULL(ml.Approved,
-                                                          d.IsSignatured)) AS isCarrefull ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[vw_ElVersionsInDocuments]
-                                                        WITH ( NOLOCK )
-                                               WHERE    DocumentID = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS withAttachment ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[vw_NotesInDocuments]
-                                                        WITH ( NOLOCK )
-                                               WHERE    DocumentID = d.id )
-                                 THEN 'Note_ex'
-                                 ELSE 'Note'
-                            END AS HasNote ,
-                            CASE WHEN ( d.IsQuestionsUploaded = 1
-                                        OR d.IsElVersionsUploaded = 1
-                                      )
-                                      AND NOT EXISTS ( SELECT 1
-                                                       FROM   [dbo].[vw_ElVersionsInDocuments]
-                                                              WITH ( NOLOCK )
-                                                       WHERE  DocumentID = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS needsAttachment ,
-                            isExecutedByExpert ,
-                            CASE WHEN d.IsPrinted = 1
-                                      OR dd.isprinted = 1 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isPrinted ,
-                            CASE WHEN d.IsPrinted = 0
-                                      OR dd.isprinted = 0 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isUnPrinted ,
-                            ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
-                                   dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)) AS CreatedBy ,
-                            CASE WHEN d.DocumentTypeID IN ( 2, 3, 14 )
-                                 THEN 'Documents/AddEdit'
-                                 WHEN d.DocumentTypeID = 5
-                                 THEN 'Documents/AddEditAuto'
-                                 WHEN d.DocumentTypeID = 6
-                                 THEN 'Documents/AddEditInner'
-                                 WHEN d.DocumentTypeID = 7
-                                 THEN 'Documents/AddEditLetter'
-                                 WHEN d.DocumentTypeID = 11
-                                 THEN CASE WHEN d.RequestType = 1
-                                           THEN 'Conclusions/AddEditAlcohol'
-                                           WHEN d.RequestType = 2
-                                           THEN 'Conclusions/AddEditNarco'
-                                           WHEN d.RequestType = 4
-                                           THEN 'Conclusions/AddEditAuto'
-                                           WHEN d.RequestType = 8
-                                           THEN 'Conclusions/AddEditAuto'
-                                           WHEN d.RequestType = 7
-                                           THEN 'Conclusions/AddEditHistology'
-										   WHEN d.IsTechReport = 1
-										   THEN 'Conclusions/AddEditTech'
-										   WHEN bd.IsAutoCrim = 1
-										   THEN 'Conclusions/AddEditCrim'
-                                           ELSE 'Conclusions/AddEdit'
-                                      END
-                                 WHEN d.DocumentTypeID = 12
-                                 THEN 'Contracts/AddEdit'
-                            END AS EditPath ,
-                            CASE WHEN d.IsSignatured = 1
-                                 THEN ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
-                                             dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID))
-                                 ELSE dbo.Fn_GetUserFullNameByAppointmentID_Alex(ms.ToID)
-                            END AS SignaturedBy ,
-                            dbo.Fn_GetBranchNameByDocumentID_Alex(d.ID) AS BranchName ,
-                            dbo.Fn_GetCountOfItemsByDocumentID_Alex(d.ID) AS CountOfAddItems ,
-                            dd.Content AS Content ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[CourierBlankNumbers]
-                                                        WITH ( NOLOCK )
-                                               WHERE    documentid = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS IsFromCourier ,
-                            SUM(1) OVER ( PARTITION BY 1 ) AS 'RowCount'
-                  FROM      [dbo].[udf_ActiveDocuments_All2fortest](@appoID, @DepID, @TypeID) d
-                            LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() dd ON dd.ID = d.ID
-                            LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() bd ON d.BaseID = bd.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMM(@appoid) mm ON mm.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMl() ml ON ml.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMS() ms ON ms.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMR() mr ON mr.DocumentID = d.ID
-                  WHERE
-				-- Andro Add Year
-				(d.DocumentTypeID = 2 AND dd.DetailTypeID = 2 AND d.ID = (SELECT TOP (1) BaseDocumentID FROM dbo.Documents WITH (NOLOCK) WHERE BaseDocumentID = d.ID AND IsActive = 1 AND (RequestTypeID = 10 OR RequestTypeID = 11)))
-				AND (
-			-- თუ აქვს საქაღალდეში, რომელიც არ უნდა ჩანდეს ფილტრებში
-                              NOT EXISTS ( SELECT   1
-                                           FROM     [dbo].[DocumentsInFolders] t2 WITH (NOLOCK)
-                                                    INNER JOIN [dbo].[Folders] t3 WITH (NOLOCK) ON t2.FolderID = t3.ID
-                                           WHERE    t2.ThingID = d.ID
-                                                    AND t3.UserID = @userID
-                                                    AND t3.OnlyInFolder = 1
-                                                    AND t2.IsActive = 1
-                                                    AND t3.IsActive = 1 )
-                            )
-                            AND (
-			--შიდა დასკვნის შემთხვევაში თუ შიდასაა მიბმული დასკვნა არ უნდა ჩანდეს ფილტრებში
-                                  d.DocumentTypeID = 11
-                                  AND bd.DocumentTypeID != 6
-                                  OR
-			--დასკვნის თანდართული წერილი არ უნდა ჩანდეს ფილტრში
-                                  d.DocumentTypeID = 7
-                                  AND ( dd.LetterType IS NULL
-                                        OR dd.LetterType != 1
-                                        OR dd.ConclusionID IS NULL
-                                      )
-                                  OR
-			--დამატებითი მასალა არ უნდა ჩანდეს ფილტრში
-                                  d.DocumentTypeID = 2
-                                  AND ( dd.DetailTypeID IS NULL
-                                        OR dd.DetailTypeID != 1
-                                        OR d.BaseID IS NULL
-                                      )
-                                  OR
-			--ყველა დანარჩენი შემთხვევა
-                                  d.DocumentTypeID != 11
-                                  AND d.DocumentTypeID != 7
-                                  AND d.DocumentTypeID != 2
-                                )
-                            AND ( ( @Done = 0
-                                    AND ( @TypeID = 0
-                                          OR @TypeID = 11
-                                          AND ( @LoadingStage = 1
-                                                AND d.ExpTypeID = 3
-                                                AND mm.ToID = @appoID
-                                                AND mm.MovementTypeID = 4
-                                                AND mm.Approved = 1
-                                                OR @LoadingStage = 0
-                                                AND ( d.ExpTypeID IN ( 1, 2 )
-                                                      OR mm.ToID != @appoID
-                                                      OR mm.MovementTypeID != 4
-                                                      OR mm.Approved != 1
-                                                    )
-                                              )
-                                          OR @TypeID != 11
-                                        )
-                                    AND ( mm.Approved = 0
-                                          OR mm.MovementTypeID = 4
-                                        )
-                                    OR @Done = 1
-                                    AND mm.Approved = 1
-                                    AND mm.MovementTypeID != 4
-                                  )
-			--ან გამოგზავნილია ან სამ უფროსი ვარ და მე ვწერ დასკვნას
-                                  AND mm.id IS NOT NULL
-                                  AND
-			--არაა ხელმოწერილი სხვის მიერ
-                                  ( d.DocumentTypeID = 11
-                                    AND ( ms.ID IS NULL
-                                          OR ms.Approved = 0
-                                        )
-                                    OR d.DocumentTypeID != 11
-                                  )
-                                  AND
-			--მივიღე და დავიწუნე, ან გავაგზავნე და დამიწუნეს, ან გავაგზავნე საქმეში ჩართვა
-                                  ( mm.ToID = @appoID
-                                    AND mm.Canceled != 1
-                                    OR mm.FromID = @appoID
-                                    AND ( mm.Canceled = 1
-                                          OR mm.MovementTypeID = 14
-                                        )
-                                    AND ( dbo.Fn_MovementsMTo_IsCanceled(d.ID,
-                                                              @appoid) = 0 )
-                                  )
-                                  AND
-			--გამომიგზავნეს ხელმოწერაზე და არ მიმოქმედია ჯერ
-                                  ( mm.MovementTypeID != 5
-                                    OR mm.Approved = 0
-                                  )
-                                  AND
-			--გამომიგზავნეს რეზოლუციაზე და არ მიმოქმედია ჯერ
-                                  ( mm.MovementTypeID != 3
-                                    OR mm.Approved = 0
-                                    AND mm.Canceled = 0
-                                    OR mm.MovementTypeID = 3 -- 2013-08-16 როცა რეზოლუციას იწუნებენ არ ჩანს შემოსულებში
-                                    AND mm.Canceled = 1
-                                  )
-                                  AND
-			--არ გაუვლია რეზოლუცია, ან მე ვარ რეზოლუციის ავტორი
-                                  ( mr.id IS NULL
-                                    OR mr.Approved = 1
-                                    OR mm.MovementTypeID = 3
-                                    AND mm.Approved = 0
-                                    OR mr.ID IS NOT NULL -- 2013-08-16 რეზოლუციის უარყოფის მერე როცა დამაწერენ
-                                    AND mr.Canceled = 1
-                                  )
-			--ან უფროსი ვარ კომპლექსურში, და უნდა გადამივიდეს მოლოდინში
-                                  OR d.DocumentTypeID = 11
-                                  AND @IsSenior = 1
-                                  AND mm.id IS NULL
-                                  AND d.AuthorID = @appoID
-                                  AND d.ExpTypeID = 3
-                                  AND d.isExecutedByExpert = 1
-                                )
-                ) AS Q
-        ORDER BY Q.specdate DESC ,
-                Q.lastEditDate DESC 
-                OFFSET @StartRowIndex ROWS
+```text
+ID:
+E91A26B0-A5C8-4C29-ADBC-000303DB38E2
 
-	FETCH NEXT @LastRowIndex - @StartRowIndex ROWS ONLY
+UserName:
+ნინო ფირცხელანი
 
-	OPTION  ( OPTIMIZE FOR ( @appoid UNKNOWN ) )
+Password:
+ef6898de09bc80ca5c7c0fcf427d658d
 
-	END
+FullName:
+ნინო ფირცხელანი
 
-	ELSE
-	BEGIN
-        SELECT  ID ,
-                DocumentNumber ,
-                CreateDate ,
-                BaseDocument ,
-                ServiceName ,
-                CreatedByID ,
-                Term ,
-                DocumentTypeID ,
-                documentType ,
-                CanEdit ,
-                CanEditDocument ,
-                CanDelete ,
-                ReportType ,
-                lastEditDate ,
-                specdate ,
-                Status ,
-                LastOperation ,
-                movedimage ,
-                isUnReaded ,
-                Client ,
-                leftedDaysString ,
-                isCarrefull ,
-                withAttachment ,
-                HasNote ,
-                needsAttachment ,
-                isExecutedByExpert ,
-                isPrinted ,
-                isUnPrinted ,
-                CreatedBy ,
-                EditPath ,
-                SignaturedBy ,
-                BranchName ,
-                CountOfAddItems ,
-                Content ,
-                IsFromCourier ,
-                [RowCount]
-        FROM    ( SELECT    d.ID ,
-                            ISNULL(d.DocumentNumber, '') AS DocumentNumber ,
-                            d.CreateDate ,
-                            ISNULL(bd.DocumentNumber, '') AS BaseDocument ,
-                            CASE WHEN ISNULL(dd.serviceid, bd.ServiceID) = '471BA814-0D68-4F4B-9FFF-B18446E1F7F4'
-                                 THEN 'Red'
-                                 ELSE 'Black'
-                            END AS ServiceName ,
-                            CASE WHEN d.DocumentTypeID IN ( 11, 12 )
-                                 THEN d.AuthorID
-                                 ELSE dd.FromID
-                            END AS CreatedByID ,
-                            ISNULL(dd.Term, 0) AS Term ,
-                            d.DocumentTypeID ,
-                            dbo.getdoctype(d.DocumentTypeID, dd.DetailTypeID,
-                                           d.RequestType, DD.InnerType,
-                                           DD.LetterType, d.IsTechReport, d.IsAutoCrim, bd.IsAutoCrim, d.InnerSubTypeID) AS documentType ,
-                            CASE WHEN d.CreatedBy != @userID THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 5
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 5
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
-                                 THEN 'none'
-                                 WHEN ( d.CreatedBy = @userID )
-                                      AND ( d.DocumentTypeID != 11
-                                            OR d.AuthorID = @appoID
-                                          )
-                                      AND d.DocumentTypeID != 2
-                                      AND d.DocumentTypeID != 3
-                                      AND d.DocumentTypeID != 14
-                                      AND d.DocumentTypeID != 5
-                                      AND ( d.IsSignatured = 0
-                                            OR d.IsSignatured IS NULL
-                                          )
-                                      AND ( ml.ID IS NULL
-                                            OR ml.canceled = 1
-                                            OR ml.ToID = @appoID
-                                            AND ml.ToID = d.AuthorID --Created Paata
-                                            AND d.DocumentTypeID != 6
-                                            OR d.ExpTypeID = 3
-                                            AND ( ms.ID IS NULL
-                                                  OR ms.Canceled = 1
-                                                )
-                                            AND ( mm.ID IS NULL
-                                                  OR mm.canceled = 1
-                                                )
-                                          ) THEN 'inline'
-                                 ELSE 'none'
-                            END AS CanEdit ,
-                            CASE
-							WHEN d.IsAutoCrim = 1 AND EXISTS ( SELECT 1
-											FROM [dbo].[Conclusions] WITH ( NOLOCK )
-											WHERE DocumentID = d.ID AND IsActive = 1
-										) THEN CONVERT(BIT, 0)
-							WHEN d.CreatedBy = @userID
-                                      AND ( ( d.DocumentTypeID = 2
-                                              AND ( ml.ID IS NULL
-                                                    OR ml.canceled = 1
-                                                    OR ml.MovementTypeID = 2
-                                                  )
-                                            )
-                                            OR ( d.DocumentTypeID IN ( 3, 14 )
-                                                 AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                               )
-                                          ) THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS CanEditDocument ,
-                            CASE WHEN d.CreatedBy != @userID THEN 'none'
-                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NULL
-                                 THEN 'inline'
-                                 WHEN d.DocumentTypeID IN ( 3, 5, 14 )
-                                      AND dbo.Fn_GetDocInConc_Is(D.ID) IS NOT NULL
-                                 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 0 THEN 'inline'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType = 7
-                                      AND d.IsPrinted = 1 THEN 'none'
-                                 WHEN d.DocumentTypeID = 11
-                                      AND d.RequestType IN ( 1, 2, 4 )
-                                      AND d.IsSent = 1 THEN 'none'
-                                 WHEN ( ( d.CreatedBy = @userID )
-                                        AND ( d.DocumentTypeID != 11
-                                              OR d.AuthorID = @appoID --Created Paata
-                                              
-                                            )
-                                        AND ( d.IsSignatured = 0
-                                              OR d.IsSignatured IS NULL
-                                            )
-                                        AND ( ml.ID IS NULL
-                                              OR ml.canceled = 1
-                                              OR ml.ToID = @appoID
-                                              AND ml.ToID = d.AuthorID --Created Paata
-                                              AND ( ( dd.InnerType != 4 )
-                                                    AND ( ms.MovementTypeID = 2
-                                                          OR mm.MovementTypeID = 2
-                                                        )
-                                                  )
-                                              AND d.DocumentTypeID != 2
-                                              OR d.ExpTypeID = 3
-                                              AND ( ms.ID IS NULL
-                                                    OR ms.Canceled = 1
-                                                  )
-                                              AND ( mm.ID IS NULL
-                                                    OR mm.canceled = 1
-                                                  )
-                                            )
-                                      ) THEN 'inline'
-                                 ELSE 'none'
-                            END AS CanDelete ,
-                            CASE WHEN d.DocumentTypeID = 11 THEN 'Conclusion'
-                                 WHEN d.DocumentTypeID = 12 THEN 'Contract'
-                                 ELSE 'Document'
-                            END AS ReportType ,
-                            CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                      AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                 THEN ml.RegistrationDate
-                                 WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ml.RegistrationDate
-                                      AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                 dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                 THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                             dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                 ELSE ISNULL(d.LastModifyDate, d.CreateDate)
-                            END AS lastEditDate ,
-                            [dbo].[getspecdate](CASE WHEN ml.RegistrationDate > ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                                          AND ml.RegistrationDate > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                     THEN ml.RegistrationDate
-                                                     WHEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ml.RegistrationDate
-                                                          AND ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)) > ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                     THEN ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                              dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL))
-                                                     ELSE ISNULL(d.LastModifyDate,
-                                                              d.CreateDate)
-                                                END) AS specdate ,
-                            CASE WHEN mm.ID IS NULL
-                                 THEN [dbo].[getLastOperation](d.DocumentTypeID,
-                                                              d.IsSent,
-                                                              d.IsOff, ml.id,
-                                                              ml.MovementTypeID,
-                                                              ml.FromID,
-                                                              ml.ToID,
-                                                              ml.Approved,
-                                                              ml.Canceled,
-                                                              ml.RegistrationDate)
-                                 ELSE [dbo].[getstatus](d.DocumentTypeID,
-                                                        d.IsSent, d.IsOff,
-                                                        ml.id,
-                                                        mm.MovementTypeID,
-                                                        mm.FromID, mm.ToID,
-                                                        mm.Approved,
-                                                        mm.Canceled, @appoID)
-                            END AS [Status] ,
-                            [dbo].[getLastOperation](d.DocumentTypeID,
-                                                     d.IsSent, d.IsOff, ml.id,
-                                                     ml.MovementTypeID,
-                                                     ml.FromID, ml.ToID,
-                                                     ml.Approved, ml.Canceled,
-                                                     ml.RegistrationDate) AS LastOperation ,
-                            CASE WHEN mm.Canceled = 1 THEN 'canceled'
-                                 WHEN ms.Approved = 1
-                                      AND ml.id = ms.id THEN 'signatured'
-                                 ELSE ( CASE WHEN mm.FromID = @appoID
-                                             THEN 'moved'
-                                             WHEN mm.ToID = @appoID
-                                                  AND mm.IsReaded = 0
-                                             THEN 'unread'
-                                             ELSE 'read'
-                                        END )
-                            END AS movedimage ,
-                            CASE WHEN mm.ToID = @appoID
-                                      AND mm.IsReaded = 0 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isUnReaded ,
-                            dbo.Fn_GetClientByDocumentID_Alex(d.ID) AS Client ,
-                            [dbo].[getmaxdate](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                      dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)),
-                                               ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                      dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              NULL)), d.IsSent,
-                                               d.IsOff, bd.IsSent, bd.IsOff,
-                                               mm.ToID, mm.Approved, @appoID,
-                                               ISNULL(ml.Approved,
-                                                      d.IsSignatured),
-                                               d.DocumentTypeID) AS leftedDaysString ,
-                            [dbo].[IsDocCarrefull](ISNULL(dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                          dbo.FN_Get_TermStartDate_By_ThingId_And_OrgID(d.id,
-                                                              NULL)),
-                                                   ISNULL(dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              @DepID),
-                                                          dbo.FN_Get_CalendarTerm_By_ThingId_And_OrgID(d.id,
-                                                              NULL)), d.IsSent,
-                                                   d.IsOff, bd.IsSent,
-                                                   bd.IsOff, mm.ToID,
-                                                   mm.Approved, @appoID,
-                                                   ISNULL(ml.Approved,
-                                                          d.IsSignatured)) AS isCarrefull ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[vw_ElVersionsInDocuments]
-                                                        WITH ( NOLOCK )
-                                               WHERE    DocumentID = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS withAttachment ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[vw_NotesInDocuments]
-                                                        WITH ( NOLOCK )
-                                               WHERE    DocumentID = d.id )
-                                 THEN 'Note_ex'
-                                 ELSE 'Note'
-                            END AS HasNote ,
-                            CASE WHEN ( d.IsQuestionsUploaded = 1
-                                        OR d.IsElVersionsUploaded = 1
-                                      )
-                                      AND NOT EXISTS ( SELECT 1
-                                                       FROM   [dbo].[vw_ElVersionsInDocuments]
-                                                              WITH ( NOLOCK )
-                                                       WHERE  DocumentID = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS needsAttachment ,
-                            isExecutedByExpert ,
-                            CASE WHEN d.IsPrinted = 1
-                                      OR dd.isprinted = 1 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isPrinted ,
-                            CASE WHEN d.IsPrinted = 0
-                                      OR dd.isprinted = 0 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS isUnPrinted ,
-                            ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
-                                   dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID)) AS CreatedBy ,
-                            CASE WHEN d.DocumentTypeID IN ( 2, 3, 14 )
-                                 THEN 'Documents/AddEdit'
-                                 WHEN d.DocumentTypeID = 5
-                                 THEN 'Documents/AddEditAuto'
-                                 WHEN d.DocumentTypeID = 6
-                                 THEN 'Documents/AddEditInner'
-                                 WHEN d.DocumentTypeID = 7
-                                 THEN 'Documents/AddEditLetter'
-                                 WHEN d.DocumentTypeID = 11
-                                 THEN CASE WHEN d.RequestType = 1
-                                           THEN 'Conclusions/AddEditAlcohol'
-                                           WHEN d.RequestType = 2
-                                           THEN 'Conclusions/AddEditNarco'
-                                           WHEN d.RequestType = 4
-                                           THEN 'Conclusions/AddEditAuto'
-                                           WHEN d.RequestType = 8
-                                           THEN 'Conclusions/AddEditAuto'
-                                           WHEN d.RequestType = 7
-                                           THEN 'Conclusions/AddEditHistology'
-										   WHEN d.IsTechReport = 1
-										   THEN 'Conclusions/AddEditTech'
-										   WHEN bd.IsAutoCrim = 1
-										   THEN 'Conclusions/AddEditCrim'
-                                           ELSE 'Conclusions/AddEdit'
-                                      END
-                                 WHEN d.DocumentTypeID = 12
-                                 THEN 'Contracts/AddEdit'
-                            END AS EditPath ,
-                            CASE WHEN d.IsSignatured = 1
-                                 THEN ISNULL(dbo.Fn_GetUserFullNameByAppointmentID_Alex(d.AuthorID),
-                                             dbo.Fn_GetUserFullNameByAppointmentID_Alex(dd.FromID))
-                                 ELSE dbo.Fn_GetUserFullNameByAppointmentID_Alex(ms.ToID)
-                            END AS SignaturedBy ,
-                            dbo.Fn_GetBranchNameByDocumentID_Alex(d.ID) AS BranchName ,
-                            dbo.Fn_GetCountOfItemsByDocumentID_Alex(d.ID) AS CountOfAddItems ,
-                            dd.Content AS Content ,
-                            CASE WHEN EXISTS ( SELECT   1
-                                               FROM     [dbo].[CourierBlankNumbers]
-                                                        WITH ( NOLOCK )
-                                               WHERE    documentid = d.id )
-                                 THEN CONVERT(BIT, 1)
-                                 ELSE CONVERT(BIT, 0)
-                            END AS IsFromCourier ,
-                            SUM(1) OVER ( PARTITION BY 1 ) AS 'RowCount'
-                  FROM      [dbo].[udf_ActiveDocuments_All2fortest](@appoID, @DepID, @TypeID) d
-                            LEFT JOIN dbo.UDF_vw_DocumentDetailsLight() dd ON dd.ID = d.ID
-                            LEFT JOIN dbo.UDF_vw_DocumentsWithDetails() bd ON d.BaseID = bd.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMM(@appoid) mm ON mm.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMl() ml ON ml.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMS() ms ON ms.DocumentID = d.ID
-                            LEFT JOIN dbo.UDF_vw_MovementsMR() mr ON mr.DocumentID = d.ID
-                  WHERE
-				-- Andro Add Year
-				(d.CreateDate BETWEEN @StartDateValue AND @EndDateValue)
-				AND (
-			-- თუ აქვს საქაღალდეში, რომელიც არ უნდა ჩანდეს ფილტრებში
-                              NOT EXISTS ( SELECT   1
-                                           FROM     [dbo].[DocumentsInFolders] t2 WITH (NOLOCK)
-                                                    INNER JOIN [dbo].[Folders] t3 WITH (NOLOCK) ON t2.FolderID = t3.ID
-                                           WHERE    t2.ThingID = d.ID
-                                                    AND t3.UserID = @userID
-                                                    AND t3.OnlyInFolder = 1
-                                                    AND t2.IsActive = 1
-                                                    AND t3.IsActive = 1 )
-                            )
-                            AND (
-			--შიდა დასკვნის შემთხვევაში თუ შიდასაა მიბმული დასკვნა არ უნდა ჩანდეს ფილტრებში
-                                  d.DocumentTypeID = 11
-                                  AND bd.DocumentTypeID != 6
-                                  OR
-			--დასკვნის თანდართული წერილი არ უნდა ჩანდეს ფილტრში
-                                  d.DocumentTypeID = 7
-                                  AND ( dd.LetterType IS NULL
-                                        OR dd.LetterType != 1
-                                        OR dd.ConclusionID IS NULL
-                                      )
-                                  OR
-			--დამატებითი მასალა არ უნდა ჩანდეს ფილტრში
-                                  d.DocumentTypeID = 2
-                                  AND ( dd.DetailTypeID IS NULL
-                                        OR dd.DetailTypeID != 1
-                                        OR d.BaseID IS NULL
-                                      )
-                                  OR
-			--ყველა დანარჩენი შემთხვევა
-                                  d.DocumentTypeID != 11
-                                  AND d.DocumentTypeID != 7
-                                  AND d.DocumentTypeID != 2
-                                )
-                            AND ( ( @Done = 0
-                                    AND ( @TypeID = 0
-                                          OR @TypeID = 11
-                                          AND ( @LoadingStage = 1
-                                                AND d.ExpTypeID = 3
-                                                AND mm.ToID = @appoID
-                                                AND mm.MovementTypeID = 4
-                                                AND mm.Approved = 1
-                                                OR @LoadingStage = 0
-                                                AND ( d.ExpTypeID IN ( 1, 2 )
-                                                      OR mm.ToID != @appoID
-                                                      OR mm.MovementTypeID != 4
-                                                      OR mm.Approved != 1
-                                                    )
-                                              )
-                                          OR @TypeID != 11
-                                        )
-                                    AND ( mm.Approved = 0
-                                          OR mm.MovementTypeID = 4
-                                        )
-                                    OR @Done = 1
-                                    AND mm.Approved = 1
-                                    AND mm.MovementTypeID != 4
-                                  )
-			--ან გამოგზავნილია ან სამ უფროსი ვარ და მე ვწერ დასკვნას
-                                  AND mm.id IS NOT NULL
-                                  AND
-			--არაა ხელმოწერილი სხვის მიერ
-                                  ( d.DocumentTypeID = 11
-                                    AND ( ms.ID IS NULL
-                                          OR ms.Approved = 0
-                                        )
-                                    OR d.DocumentTypeID != 11
-                                  )
-                                  AND
-			--მივიღე და დავიწუნე, ან გავაგზავნე და დამიწუნეს, ან გავაგზავნე საქმეში ჩართვა
-                                  ( mm.ToID = @appoID
-                                    AND mm.Canceled != 1
-                                    OR mm.FromID = @appoID
-                                    AND ( mm.Canceled = 1
-                                          OR mm.MovementTypeID = 14
-                                        )
-                                    AND ( dbo.Fn_MovementsMTo_IsCanceled(d.ID,
-                                                              @appoid) = 0 )
-                                  )
-                                  AND
-			--გამომიგზავნეს ხელმოწერაზე და არ მიმოქმედია ჯერ
-                                  ( mm.MovementTypeID != 5
-                                    OR mm.Approved = 0
-                                  )
-                                  AND
-			--გამომიგზავნეს რეზოლუციაზე და არ მიმოქმედია ჯერ
-                                  ( mm.MovementTypeID != 3
-                                    OR mm.Approved = 0
-                                    AND mm.Canceled = 0
-                                    OR mm.MovementTypeID = 3 -- 2013-08-16 როცა რეზოლუციას იწუნებენ არ ჩანს შემოსულებში
-                                    AND mm.Canceled = 1
-                                  )
-                                  AND
-			--არ გაუვლია რეზოლუცია, ან მე ვარ რეზოლუციის ავტორი
-                                  ( mr.id IS NULL
-                                    OR mr.Approved = 1
-                                    OR mm.MovementTypeID = 3
-                                    AND mm.Approved = 0
-                                    OR mr.ID IS NOT NULL -- 2013-08-16 რეზოლუციის უარყოფის მერე როცა დამაწერენ
-                                    AND mr.Canceled = 1
-                                  )
-			--ან უფროსი ვარ კომპლექსურში, და უნდა გადამივიდეს მოლოდინში
-                                  OR d.DocumentTypeID = 11
-                                  AND @IsSenior = 1
-                                  AND mm.id IS NULL
-                                  AND d.AuthorID = @appoID
-                                  AND d.ExpTypeID = 3
-                                  AND d.isExecutedByExpert = 1
-                                )
-                ) AS Q
-        ORDER BY Q.specdate DESC ,
-                Q.lastEditDate DESC 
-                OFFSET @StartRowIndex ROWS
+IsActive:
+1
+```
 
-	FETCH NEXT @LastRowIndex - @StartRowIndex ROWS ONLY
+---
 
-	OPTION  ( OPTIMIZE FOR ( @appoid UNKNOWN ) )
+# 25. MD5-ის ცალკე შემოწმება
 
-	END
+ეს ძალიან მნიშვნელოვანია.
 
-    END
+ჩვენ ვვარაუდობთ:
+
+```text
+MD5(UTF8(password))
+```
+
+მაგრამ ძველმა პროგრამამ შეიძლება გამოიყენოს:
+
+```text
+MD5(ASCII(password))
+MD5(Unicode/password)
+MD5(password.Trim())
+MD5(password.ToUpper())
+MD5(password.ToLower())
+```
+
+ან საერთოდ სხვა algorithm.
+
+თუ ნინოს რეალური password იცი, შეგიძლია დროებით Console project შექმნა.
+
+```bash
+dotnet new console -n HashTest -o tools/HashTest --framework net8.0
+```
+
+`tools/HashTest/Program.cs`:
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+
+Console.OutputEncoding = Encoding.UTF8;
+
+Console.Write("Password: ");
+
+var password = Console.ReadLine();
+
+if (string.IsNullOrEmpty(password))
+{
+    Console.WriteLine("Password is empty.");
+    return;
+}
+
+var bytes = Encoding.UTF8.GetBytes(password);
+
+var hashBytes = MD5.HashData(bytes);
+
+var hash = Convert
+    .ToHexString(hashBytes)
+    .ToLowerInvariant();
+
+Console.WriteLine();
+Console.WriteLine($"MD5: {hash}");
+
+Console.WriteLine();
+
+Console.WriteLine(
+    hash == "ef6898de09bc80ca5c7c0fcf427d658d"
+        ? "MATCH!"
+        : "DOES NOT MATCH!");
+```
+
+გაუშვი:
+
+```bash
+dotnet run --project tools/HashTest
+```
+
+ჩაწერე ნინოს რეალური password.
+
+თუ მიიღე:
+
+```text
+MD5: ef6898de09bc80ca5c7c0fcf427d658d
+
+MATCH!
+```
+
+მაშინ ზუსტად ვიცით, რომ არსებული login implementation იმუშავებს.
+
+---
+
+# 26. თუ MD5 არ დაემთხვა
+
+არ დაიწყო database-ში password-ების შეცვლა ბრმად.
+
+ჯერ უნდა ვიპოვოთ legacy application-ის hash algorithm.
+
+თუ გაქვს ძველი source code, მოძებნე სიტყვები:
+
+```text
+MD5
+Password
+Hash
+ComputeHash
+MD5CryptoServiceProvider
+Encoding
+FormsAuthentication
+```
+
+ძველი .NET კოდი შეიძლება გამოიყურებოდეს:
+
+```csharp
+MD5CryptoServiceProvider
+```
+
+ან:
+
+```csharp
+MD5.Create()
+```
+
+ან:
+
+```csharp
+FormsAuthentication.HashPasswordForStoringInConfigFile(...)
+```
+
+---
+
+# 27. შესაძლო Unicode MD5
+
+ძველ .NET სისტემაში შესაძლებელია გამოყენებული იყოს:
+
+```csharp
+Encoding.Unicode.GetBytes(password)
+```
+
+თუ UTF8 არ დაემთხვა, შეგიძლია ესეც გამოცადო:
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+
+var password = "REAL_PASSWORD";
+
+var utf8Hash = Convert
+    .ToHexString(
+        MD5.HashData(
+            Encoding.UTF8.GetBytes(password)))
+    .ToLowerInvariant();
+
+var unicodeHash = Convert
+    .ToHexString(
+        MD5.HashData(
+            Encoding.Unicode.GetBytes(password)))
+    .ToLowerInvariant();
+
+var asciiHash = Convert
+    .ToHexString(
+        MD5.HashData(
+            Encoding.ASCII.GetBytes(password)))
+    .ToLowerInvariant();
+
+Console.WriteLine($"UTF8:    {utf8Hash}");
+Console.WriteLine($"Unicode: {unicodeHash}");
+Console.WriteLine($"ASCII:   {asciiHash}");
+```
+
+შემდეგ შეადარე:
+
+```text
+ef6898de09bc80ca5c7c0fcf427d658d
+```
+
+---
+
+# 28. მნიშვნელოვანი Security საკითხი
+
+MD5 password storage უსაფრთხო აღარ არის.
+
+ჩვენ MD5-ს ვიყენებთ მხოლოდ იმიტომ, რომ არსებული legacy database გვაქვს.
+
+სწორი საბოლოო migration იქნება:
+
+```text
+Existing User
+      │
+      ▼
+Login with old password
+      │
+      ▼
+Verify legacy MD5
+      │
+      ▼
+Correct?
+      │
+      ▼
+Generate modern password hash
+      │
+      ▼
+Save new hash
+      │
+      ▼
+Future login uses modern hash
+```
+
+მაგალითად მომავალში:
+
+```text
+PBKDF2
+```
+
+ან:
+
+```text
+ASP.NET Core PasswordHasher<TUser>
+```
+
+---
+
+# 29. Repository Pattern-ის აზრი
+
+Controller პირდაპირ database-ს არ უკავშირდება.
+
+ცუდი ვარიანტი:
+
+```csharp
+[HttpPost("login")]
+public async Task<IActionResult> Login(...)
+{
+    var user = await _dbContext.Users
+        .FirstOrDefaultAsync(...);
+
+    // ...
+}
+```
+
+ჩვენთან კი flow ასეთია:
+
+```text
+AuthController
+      │
+      ▼
+LoginService
+      │
+      ▼
+IUserRepository
+      │
+      ▼
+UserRepository
+      │
+      ▼
+MembershipDbContext
+      │
+      ▼
+SQL Server
+```
+
+ეს გვაძლევს:
+
+- უკეთეს separation of concerns;
+- უკეთეს unit testing-ს;
+- infrastructure-ის შეცვლის შესაძლებლობას;
+- controller-ში ნაკლებ business logic-ს.
+
+---
+
+# 30. Clean Architecture Dependency Rule
+
+Domain:
+
+```text
+არავისზე არ არის დამოკიდებული.
+```
+
+Application:
+
+```text
+დამოკიდებულია Domain-ზე.
+```
+
+Infrastructure:
+
+```text
+დამოკიდებულია Application + Domain-ზე.
+```
+
+API:
+
+```text
+დამოკიდებულია Application + Infrastructure-ზე.
+```
+
+ანუ Application-ში ასეთი რამ არ უნდა გვქონდეს:
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+```
+
+არც:
+
+```csharp
+using eMembership.Infrastructure;
+```
+
+არც:
+
+```csharp
+SqlConnection
+```
+
+---
+
+# 31. მნიშვნელოვანი database type checks
+
+სანამ production-ში გაუშვებ, SQL-ში შეგიძლია datatype-ები ნახო:
+
+```sql
+SELECT
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'users'
+  AND TABLE_NAME = 'Users'
+ORDER BY ORDINAL_POSITION;
+```
+
+განსაკუთრებით გადაამოწმე:
+
+```text
+Gender
+IsActive
+IsFirstPassword
+IsChancelleryAccount
+CreatedBy
+LastModifiedBy
+Version
+```
+
+თუ `Gender` მაგალითად `int` არის და არა `bit`, მაშინ Domain-ში:
+
+```csharp
+public bool Gender { get; set; }
+```
+
+შესაცვლელი იქნება.
+
+---
+
+# 32. Database connection test
+
+თუ API ვერ უკავშირდება SQL Server-ს, პირველ რიგში გადაამოწმე:
+
+```powershell
+Test-NetConnection 10.0.33.33 -Port 1433
+```
+
+თუ მიიღე:
+
+```text
+TcpTestSucceeded : True
+```
+
+SQL Server port ხელმისაწვდომია.
+
+თუ:
+
+```text
+False
+```
+
+შეამოწმე:
+
+- VPN;
+- Firewall;
+- SQL Server TCP/IP;
+- SQL Server port;
+- network access.
+
+---
+
+# 33. საბოლოო Flow
+
+Login request:
+
+```text
+Frontend
+   │
+   │ POST /api/auth/login
+   │ username + password
+   ▼
+AuthController
+   │
+   ▼
+LoginService
+   │
+   ├── IUserRepository
+   │       │
+   │       ▼
+   │   UserRepository
+   │       │
+   │       ▼
+   │   SQL Server
+   │
+   ├── IPasswordVerifier
+   │       │
+   │       ▼
+   │   Legacy MD5
+   │
+   └── IJwtTokenService
+           │
+           ▼
+       JWT Token
+```
+
+Successful response:
+
+```text
+Frontend
+   │
+   ▼
+JWT Token
+   │
+   ▼
+Authorization: Bearer TOKEN
+   │
+   ▼
+Protected endpoints
+```
+
+---
+
+# 34. Build Commands - მოკლე ვერსია
+
+ყველაფერი რომ უკვე შექმნილი გაქვს:
+
+```bash
+dotnet restore
+```
+
+```bash
+dotnet build
+```
+
+```bash
+dotnet run --project src/eMembership.Api
+```
+
+ან:
+
+```bash
+dotnet watch --project src/eMembership.Api
+```
+
+---
+
+# 35. Login endpoint
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+```
+
+```json
+{
+  "userName": "ნინო ფირცხელანი",
+  "password": "REAL_PASSWORD"
+}
+```
+
+---
+
+# 36. Protected endpoint
+
+```http
+GET /api/users/me
+Authorization: Bearer JWT_TOKEN
+```
+
+---
+
+# 37. შემდეგი ეტაპები
+
+ამ საბაზისო login-ის შემდეგ პროექტში სასურველია დაემატოს:
+
+```text
+1. Refresh Tokens
+
+2. Password migration:
+   MD5 -> PBKDF2
+
+3. Roles
+
+4. Permissions
+
+5. Logout / token revocation
+
+6. Login audit log
+
+7. Brute-force protection
+
+8. Rate limiting
+
+9. Global exception handling
+
+10. Result pattern
+
+11. FluentValidation
+
+12. Unit tests
+
+13. Integration tests
+```
+
+მაგრამ პირველ ეტაპზე მიზანია:
+
+```text
+SQL Server
+    ↓
+Existing Users
+    ↓
+Login
+    ↓
+Password Verification
+    ↓
+JWT
+    ↓
+[Authorize]
+```
+
+ეს implementation ამისთვის საკმარისია.
+
+---
+
+# 38. მნიშვნელოვანი შენიშვნა
+
+შენს თავდაპირველ ტექსტში ეწერა:
+
+```text
+ცხრილი users.User
+```
+
+მაგრამ SQL query-ში გაქვს:
+
+```sql
+FROM [eMembership].[users].[Users]
+```
+
+ამ setup-ში გამოყენებულია:
+
+```text
+Schema: users
+Table: Users
+```
+
+ანუ:
+
+```sql
+[users].[Users]
+```
+
+თუ რეალური table სინამდვილეში არის:
+
+```sql
+[users].[User]
+```
+
+მაშინ მხოლოდ ეს შეცვალე:
+
+```csharp
+entity.ToTable(
+    name: "Users",
+    schema: "users");
+```
+
+ასეთად:
+
+```csharp
+entity.ToTable(
+    name: "User",
+    schema: "users");
+```
+
+მაგრამ შენს SELECT-ში `[users].[Users]` გაქვს, ამიტომ ამ ეტაპზე `Users` სწორად ჩავთვალეთ.
