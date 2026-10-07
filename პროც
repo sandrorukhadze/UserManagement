@@ -1,44 +1,31 @@
-SchemaName	TableName	ColumnName	DataType
-dbo	AutoExpertUsers	UserId	uniqueidentifier
-dbo	ITusers	UserID	uniqueidentifier
-dbo	StatisticsPermissions	UserID	uniqueidentifier
-orgs	UserAppointments	ID	uniqueidentifier
-orgs	UserAppointments	PositionID	uniqueidentifier
-orgs	UserAppointments	UserID	uniqueidentifier
-orgs	UserAppointments	BeginDate	date
-orgs	UserAppointments	FinishDate	date
-orgs	UserAppointments	Expertise	nvarchar
-orgs	UserAppointments	IsActive	bit
-orgs	UserAppointments	CreateDate	datetime
-orgs	UserAppointments	CreatedBy	uniqueidentifier
-orgs	UserAppointments	LastModifyDate	datetime
-orgs	UserAppointments	LastModifiedBy	uniqueidentifier
-orgs	UserAppointments	Version	timestamp
-orgs	UserAppointments	ReportPosition_Name	nvarchar
-orgs	UserAppointments	ISOAcreditation	nvarchar
-users	ResetPasswords_Log	UserID	uniqueidentifier
-users	Sessions	UserID	uniqueidentifier
-users	Sessions_2022	UserID	uniqueidentifier
-users	Sessions_2023	UserID	uniqueidentifier
-users	Sessions_2024	UserID	uniqueidentifier
-users	Sessions_2025	UserID	uniqueidentifier
-users	SessionsLog	UserID	uniqueidentifier
-users	UserAppointmentsInPermissions	ID	uniqueidentifier
-users	UserAppointmentsInPermissions	UserAppointmentID	uniqueidentifier
-users	UserAppointmentsInPermissions	PermissionID	uniqueidentifier
-users	UserAppointmentsInPermissions	IsActive	bit
-users	UserAppointmentsInPermissions	CreateDate	datetime
-users	UserAppointmentsInPermissions	CreatedBy	uniqueidentifier
-users	UserAppointmentsInPermissions	LastModifyDate	datetime
-users	UserAppointmentsInPermissions	LastModifiedBy	uniqueidentifier
-users	UserAppointmentsInPermissions	Version	timestamp
-users	UserAppointmentsInRoles	ID	uniqueidentifier
-users	UserAppointmentsInRoles	UserAppointmentID	uniqueidentifier
-users	UserAppointmentsInRoles	RoleID	uniqueidentifier
-users	UserAppointmentsInRoles	IsActive	bit
-users	UserAppointmentsInRoles	CreateDate	datetime
-users	UserAppointmentsInRoles	CreatedBy	uniqueidentifier
-users	UserAppointmentsInRoles	LastModifyDate	datetime
-users	UserAppointmentsInRoles	LastModifiedBy	uniqueidentifier
-users	UserAppointmentsInRoles	Version	timestamp
-users	UserHolidays	UserID	uniqueidentifier
+USE [eMembership];
+GO
+
+SELECT TOP (100)
+    u.ID AS UserID,
+    u.UserName,
+    u.FullName,
+    ua.ID AS AppointmentID,
+    ua.PositionID,
+    ua.BeginDate,
+    ua.FinishDate
+FROM users.Users AS u
+INNER JOIN orgs.UserAppointments AS ua
+    ON ua.UserID = u.ID
+WHERE ua.IsActive = 1
+ORDER BY u.UserName, ua.BeginDate DESC;
+
+
+SELECT
+    s.name AS SchemaName,
+    t.name AS TableName,
+    c.name AS ColumnName
+FROM sys.tables AS t
+INNER JOIN sys.schemas AS s
+    ON s.schema_id = t.schema_id
+INNER JOIN sys.columns AS c
+    ON c.object_id = t.object_id
+WHERE
+    s.name = 'orgs'
+    AND t.name LIKE '%Position%'
+ORDER BY t.name, c.column_id;
