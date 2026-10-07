@@ -1,3 +1,110 @@
-curl -X 'GET' \
-  'http://localhost:5226/api/users/by-username?userName=%E1%83%9C%E1%83%98%E1%83%99%E1%83%90' \
-  -H 'accept: text/plain
+// ======================================================
+// 1. Application/DTOs/UserInfoDto.cs
+// UserId უნდა იყოს Guid:
+// ======================================================
+
+public Guid UserId { get; set; }
+
+
+// ======================================================
+// 2. Application/Interfaces/IUserRepository.cs
+// არსებული GetByUserNameAsync ჩაანაცვლე:
+// ======================================================
+
+Task<List<UserInfoDto>> GetByUserNameAsync(
+    string userName,
+    CancellationToken cancellationToken = default);
+
+
+// ======================================================
+// 3. Infrastructure/Repositories/UserRepository.cs
+// ფაილის თავში უნდა გქონდეს:
+// ======================================================
+
+using System.Data;
+using Application.DTOs;
+using Dapper;
+using Microsoft.Data.SqlClient;
+
+// კლასის შიგნით არსებული GetByUserNameAsync
+// მთლიანად ჩაანაცვლე ამ მეთოდით:
+
+public async Task<List<UserInfoDto>> GetByUserNameAsync(
+    string userName,
+    CancellationToken cancellationToken = default)
+{
+    await using var connection =
+        new SqlConnection(_connectionString);
+
+    await connection.OpenAsync(cancellationToken);
+
+    // ვეძებთ UserName-ში ტექსტის შემცველობით.
+    const string sql = """
+        SELECT
+            ID AS UserId,
+            UserName,
+            FullName,
+            Gender,
+            PrivateNumber,
+            EMail,
+            IsActive
+        FROM [eMembership].[users].[Users]
+        WHERE UserName LIKE @SearchPattern
+        ORDER BY UserName, ID;
+        """;
+
+    // მაგალითად "ნიკა" გადაიქცევა "%ნიკა%"-დ.
+    // DbType.String პარამეტრს Unicode ტექსტად გადასცემს.
+    var parameters = new DynamicParameters();
+
+    parameters.Add(
+        "SearchPattern",
+        "%" + userName.Trim() + "%",
+        DbType.String);
+
+    var command = new CommandDefinition(
+        commandText: sql,
+        parameters: parameters,
+        commandType: CommandType.Text,
+        cancellationToken: cancellationToken);
+
+    var users = await connection.QueryAsync<UserInfoDto>(command);
+
+    return users.ToList();
+}
+
+
+// ======================================================
+// 4. Application/Services/UserService.cs
+// არსებული GetByUserNameAsync ჩაანაცვლე:
+// ======================================================
+
+public Task<List<UserInfoDto>> GetByUserNameAsync(
+    string userName,
+    CancellationToken cancellationToken = default)
+{
+    return _users.GetByUserNameAsync(
+        userName.Trim(),
+        cancellationToken);
+}
+
+
+// ======================================================
+// 5. API/Controllers/UsersController.cs
+// არსებული GetByUserName ჩაანაცვლე:
+// ======================================================
+
+[HttpGet("by-username")]
+public async Task<ActionResult<List<UserInfoDto>>> GetByUserName(
+    [FromQuery] string? userName,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(userName))
+        return BadRequest("userName აუცილებელია.");
+
+    var users = await _userService.GetByUserNameAsync(
+        userName,
+        cancellationToken);
+
+    return Ok(users);
+}
