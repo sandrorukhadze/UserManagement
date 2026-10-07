@@ -1,35 +1,42 @@
-// IUserRepository.cs — დაბრუნების ტიპი:
-Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default);
-
-// UserService.cs — მეთოდის სათაური:
-public Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default)
-
-// UserRepository.cs — მეთოდის სათაური:
-public async Task<List<UserInfoDto>> GetByUserNameAsync(
-    string userName,
-    CancellationToken cancellationToken = default)
-
-// UserRepository.cs — SQL-ში:
-// SELECT TOP (1) შეცვალე SELECT-ით.
-// WHERE პირობა შეცვალე:
-WHERE UserName LIKE N'%' + @UserName + N'%'
-
-// UserRepository.cs — ბოლო სტრიქონები:
-var users = await connection.QueryAsync<UserInfoDto>(command);
-return users.ToList();
-
-// UsersController.cs — მეთოდის სათაური:
-public async Task<ActionResult<List<UserInfoDto>>> GetByUserName(
-    [FromQuery] string? userName,
-    CancellationToken cancellationToken)
-
-// UsersController.cs — Service-ის გამოძახებიდან ბოლომდე:
-var users = await _userService.GetByUserNameAsync(
-    userName,
-    cancellationToken);
-
-return Ok(users);
+ Application is shutting down...
+PS C:\Users\srukhadze\source\repos\UserManagement\API> dotnet run
+Using launch settings from C:\Users\srukhadze\source\repos\UserManagement\API\Properties\launchSettings.json...
+Building...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5226
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\srukhadze\source\repos\UserManagement\API
+fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      Microsoft.Data.SqlClient.SqlException (0x80131904): Incorrect syntax near the keyword 'LIKE'.
+         at Microsoft.Data.SqlClient.SqlCommand.<>c.<ExecuteDbDataReaderAsync>b__270_0(Task`1 result)
+         at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+      --- End of stack trace from previous location ---
+         at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+         at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+      --- End of stack trace from previous location ---
+         at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 434
+         at Infrastructure.Repositories.UserRepository.GetByUserNameAsync(String userName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 80
+         at Infrastructure.Repositories.UserRepository.GetByUserNameAsync(String userName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\Infrastructure\Repositories\UserRepository.cs:line 81
+         at API.Controllers.UsersController.GetByUserName(String userName, CancellationToken cancellationToken) in C:\Users\srukhadze\source\repos\UserManagement\API\Controllers\UsersController.cs:line 51
+         at lambda_method5(Closure, Object)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+         at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+         at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+      ClientConnectionId:44acbc69-70f1-4d53-8451-67b4fffa1473
+      Error Number:156,State:1,Class:15
+info: Microsoft.Hosting.Lifetime[0]
