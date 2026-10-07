@@ -1,59 +1,11 @@
-using System.Data;
-using Dapper;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
+// ======================================================
+// 1. Application/DTOs/UserInfoDto.cs
+// შექმენი ეს ფაილი. თუ უკვე გაქვს, მეორედ აღარ შექმნა.
+// ======================================================
 
-namespace API.Controllers;
+namespace Application.DTOs;
 
-[ApiController]
-[Route("api/users/all")]
-public class AllUsersController : ControllerBase
-{
-    private readonly string _connectionString;
-
-    public AllUsersController(IConfiguration configuration)
-    {
-        _connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "DefaultConnection არ არის მითითებული.");
-    }
-
-    [HttpGet]
-    public async Task<ActionResult<List<AllUsersResponse>>> GetAll(
-        CancellationToken cancellationToken)
-    {
-        await using var connection =
-            new SqlConnection(_connectionString);
-
-        await connection.OpenAsync(cancellationToken);
-
-        const string sql = """
-            SELECT
-                ID AS UserId,
-                UserName,
-                FullName,
-                Gender,
-                PrivateNumber,
-                EMail,
-                IsActive
-            FROM [users].[Users]
-            ORDER BY ID;
-            """;
-
-        var command = new CommandDefinition(
-            commandText: sql,
-            commandType: CommandType.Text,
-            cancellationToken: cancellationToken);
-
-        var users = await connection
-            .QueryAsync<AllUsersResponse>(command);
-
-        return Ok(users.ToList());
-    }
-}
-
-public class AllUsersResponse
+public class UserInfoDto
 {
     public int UserId { get; set; }
     public string? UserName { get; set; }
@@ -63,3 +15,121 @@ public class AllUsersResponse
     public string? EMail { get; set; }
     public bool? IsActive { get; set; }
 }
+
+
+// ======================================================
+// 2. Application/Interfaces/IUserRepository.cs
+// ======================================================
+
+// ფაილის თავში დაამატე, თუ არ გაქვს:
+using Application.DTOs;
+
+// ეს მეთოდი ჩასვი არსებული IUserRepository-ის შიგნით.
+// სხვა მეთოდები დატოვე.
+Task<List<UserInfoDto>> GetAllAsync(
+    CancellationToken cancellationToken = default);
+
+
+// ======================================================
+// 3. Infrastructure/Repositories/UserRepository.cs
+// ======================================================
+
+// ფაილის თავში დაამატე საჭირო using-ები.
+// რაც უკვე გაქვს, მეორედ აღარ დაამატო.
+using System.Data;
+using Application.DTOs;
+using Dapper;
+using Microsoft.Data.SqlClient;
+
+// ეს მეთოდი ჩასვი არსებული UserRepository კლასის შიგნით.
+// არსებულ _connectionString-ს და კონსტრუქტორს გამოიყენებს.
+public async Task<List<UserInfoDto>> GetAllAsync(
+    CancellationToken cancellationToken = default)
+{
+    // ვქმნით კავშირს შენს ბაზასთან.
+    await using var connection =
+        new SqlConnection(_connectionString);
+
+    // ვხსნით კავშირს.
+    await connection.OpenAsync(cancellationToken);
+
+    // პირდაპირ SELECT — პროცედურის გარეშე.
+    // Password არ გამოგვაქვს.
+    const string sql = """
+        SELECT
+            ID AS UserId,
+            UserName,
+            FullName,
+            Gender,
+            PrivateNumber,
+            EMail,
+            IsActive
+        FROM [users].[Users]
+        ORDER BY ID;
+        """;
+
+    // ვამზადებთ SQL მოთხოვნას.
+    var command = new CommandDefinition(
+        commandText: sql,
+        commandType: CommandType.Text,
+        cancellationToken: cancellationToken);
+
+    // Dapper SQL-ის შედეგს DTO ობიექტებად გარდაქმნის.
+    var users = await connection.QueryAsync<UserInfoDto>(command);
+
+    // ვაბრუნებთ მომხმარებლების სიას.
+    return users.ToList();
+}
+
+
+// ======================================================
+// 4. Application/Services/UserService.cs
+// ======================================================
+
+// ფაილის თავში დაამატე, თუ არ გაქვს:
+using Application.DTOs;
+
+// ეს მეთოდი ჩასვი არსებული UserService კლასის შიგნით.
+public Task<List<UserInfoDto>> GetAllAsync(
+    CancellationToken cancellationToken = default)
+{
+    // Service მომხმარებლების წამოღებას Repository-ს ავალებს.
+    return _users.GetAllAsync(cancellationToken);
+}
+
+
+// ======================================================
+// 5. API/Controllers/UsersController.cs
+// ======================================================
+
+// ფაილის თავში დაამატე, თუ არ გაქვს:
+using Application.DTOs;
+using Microsoft.AspNetCore.Mvc;
+
+// ეს მეთოდი ჩასვი არსებული UsersController კლასის შიგნით.
+// Controller-ზე არსებული [Route("api/users")] დატოვე.
+[HttpGet("all")]
+public async Task<ActionResult<List<UserInfoDto>>> GetAll(
+    CancellationToken cancellationToken)
+{
+    // Service-დან ვიღებთ მომხმარებლების სიას.
+    var users = await _userService.GetAllAsync(cancellationToken);
+
+    // ფრონტს ვუბრუნებთ 200 OK-ს და JSON სიას.
+    return Ok(users);
+}
+
+
+// ======================================================
+// 6. Program.cs და appsettings.json
+// ======================================================
+
+// აქ ცვლილება არ გჭირდება.
+// Repository, Service და connection string უკვე გაქვს.
+
+// თუ წინა ერთფაილიანი AllUsersController.cs შექმენი,
+// ის წაშალე, რომ ერთი მისამართი ორჯერ არ დარეგისტრირდეს.
+
+// გადატვირთე API.
+// Swagger-ში გამოჩნდება: GET /api/users/all
+// პარამეტრები არ სჭირდება — ყველა მომხმარებელს აბრუნებს.
