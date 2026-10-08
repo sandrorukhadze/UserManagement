@@ -1,47 +1,53 @@
 USE [eMembership];
 GO
 
-DECLARE @UserID UNIQUEIDENTIFIER =
-    'აქ-ჩასვი-UserID';
+CREATE OR ALTER PROCEDURE dbo.GetUserAppointments
+    @UserID UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-;WITH Appointments AS
-(
+    ;WITH Appointments AS
+    (
+        SELECT
+            ua.ID AS UserAppointmentID,
+            ua.UserID,
+            ua.PositionID,
+            r.ID AS RoleID,
+            r.Name AS RoleName,
+
+            ROW_NUMBER() OVER
+            (
+                PARTITION BY ua.PositionID
+                ORDER BY ua.BeginDate DESC, ua.ID
+            ) AS RowNumber
+
+        FROM orgs.UserAppointments AS ua
+
+        LEFT JOIN orgs.UserAppointmentsInRoles AS uar
+            ON uar.UserAppointmentID = ua.ID
+
+        LEFT JOIN users.Roles AS r
+            ON r.ID = uar.RoleID
+
+        WHERE ua.UserID = @UserID
+          AND ua.IsActive = 1
+          AND ua.BeginDate <= CONVERT(date, GETDATE())
+          AND (
+                ua.FinishDate IS NULL
+                OR ua.FinishDate >= CONVERT(date, GETDATE())
+              )
+    )
+
     SELECT
-        ua.ID AS UserAppointmentID,
-        ua.UserID,
-        ua.PositionID,
-        r.ID AS RoleID,
-        r.Name AS RoleName,
+        UserAppointmentID,
+        UserID,
+        PositionID,
+        RoleID,
+        RoleName
+    FROM Appointments
+    WHERE RowNumber = 1
 
-        ROW_NUMBER() OVER
-        (
-            PARTITION BY ua.PositionID
-            ORDER BY ua.BeginDate DESC, ua.ID
-        ) AS RowNumber
-
-    FROM orgs.UserAppointments AS ua
-
-    LEFT JOIN orgs.UserAppointmentsInRoles AS uar
-        ON uar.UserAppointmentID = ua.ID
-
-    LEFT JOIN users.Roles AS r
-        ON r.ID = uar.RoleID
-
-    WHERE ua.UserID = @UserID
-      AND ua.IsActive = 1
-      AND ua.BeginDate <= CONVERT(date, GETDATE())
-      AND (
-            ua.FinishDate IS NULL
-            OR ua.FinishDate >= CONVERT(date, GETDATE())
-          )
-)
-
-SELECT
-    UserAppointmentID,
-    UserID,
-    PositionID,
-    RoleID,
-    RoleName
-FROM Appointments
-WHERE RowNumber = 1
-ORDER BY RoleName;
+    ORDER BY RoleName;
+END;
+GO
