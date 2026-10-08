@@ -1,40 +1,265 @@
-System.Data.DataException: Error parsing column 15 (LastMovementTypeID=14 - Int32)
- ---> System.InvalidCastException: Invalid cast from 'System.Int32' to 'System.Guid'.
-   at System.Convert.DefaultToType(IConvertible value, Type targetType, IFormatProvider provider)
-   at Deserializef2a49731-c0dc-4479-a9fe-d3ffd394aebe(DbDataReader)
-   --- End of inner exception stack trace ---
-   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 4094
-   at Deserializef2a49731-c0dc-4479-a9fe-d3ffd394aebe(DbDataReader)
-   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command)
-   at eMembership.Infrastructure.Repositories.DocumentRepository.GetByAppointmentIdAsync(Guid userAppointmentId, CancellationToken cancellationToken)
-   at eMembership.Api.Controllers.DocumentsController.GetDocuments(Guid userAppointmentId, CancellationToken cancellationToken)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
-   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
-   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
-   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
-   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
-   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
-   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+import { useMemo, useState } from "react";
 
-HEADERS
-=======
-Accept: */*
-Connection: keep-alive
-Host: localhost:5273
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
-Accept-Encoding: gzip, deflate, br, zstd
-Accept-Language: en-US,en;q=0.9
-Referer: http://localhost:5273/swagger/index.html
-sec-ch-ua-platform: "Windows"
-sec-ch-ua: "Chromium";v="154", "Google Chrome";v="154", "Not A(Brand";v="99"
-sec-ch-ua-mobile: ?0
-Sec-Fetch-Site: same-origin
-Sec-Fetch-Mode: cors
-Sec-Fetch-Dest: empty
+import UserSelect
+  from "../components/UserSelect";
+
+import AppointmentSelect
+  from "../components/AppointmentSelect";
+
+import DocumentsTable
+  from "../components/DocumentsTable";
+
+import { users }
+  from "../data/users";
+
+import {
+  getUserAppointments
+} from "../api/appointmentsApi";
+
+import {
+  getDocumentsByAppointment
+} from "../api/documentsApi";
+
+import type {
+  UserAppointment
+} from "../types/UserAppointment";
+
+import type {
+  DocumentItem
+} from "../types/DocumentItem";
+
+export default function DocumentsPage() {
+  const [
+    selectedUserId,
+    setSelectedUserId
+  ] = useState("");
+
+  const [
+    appointments,
+    setAppointments
+  ] = useState<UserAppointment[]>([]);
+
+  const [
+    selectedAppointmentId,
+    setSelectedAppointmentId
+  ] = useState("");
+
+  const [
+    documents,
+    setDocuments
+  ] = useState<DocumentItem[]>([]);
+
+  const [
+    loading,
+    setLoading
+  ] = useState(false);
+
+  const [
+    error,
+    setError
+  ] = useState("");
+
+  const [
+    currentPage,
+    setCurrentPage
+  ] = useState(1);
+
+  const pageSize = 10;
+
+  const totalPages =
+    Math.ceil(documents.length / pageSize);
+
+  const pagedDocuments = useMemo(() => {
+    const startIndex =
+      (currentPage - 1) * pageSize;
+
+    const endIndex =
+      startIndex + pageSize;
+
+    return documents.slice(
+      startIndex,
+      endIndex
+    );
+  }, [documents, currentPage]);
+
+  const handleUserChange =
+    async (userId: string) => {
+      setSelectedUserId(userId);
+      setAppointments([]);
+      setSelectedAppointmentId("");
+      setDocuments([]);
+      setCurrentPage(1);
+      setError("");
+
+      if (!userId) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const data =
+          await getUserAppointments(
+            userId
+          );
+
+        setAppointments(data);
+      }
+      catch (error) {
+        console.error(error);
+
+        setError(
+          "თანამდებობების წამოღება ვერ მოხერხდა."
+        );
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+  const handleAppointmentChange =
+    async (
+      userAppointmentId: string
+    ) => {
+      setSelectedAppointmentId(
+        userAppointmentId
+      );
+
+      setDocuments([]);
+      setCurrentPage(1);
+      setError("");
+
+      if (!userAppointmentId) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const data =
+          await getDocumentsByAppointment(
+            userAppointmentId
+          );
+
+        setDocuments(data);
+      }
+      catch (error) {
+        console.error(error);
+
+        setError(
+          "დოკუმენტების წამოღება ვერ მოხერხდა."
+        );
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+  const handlePreviousPage = () => {
+    setCurrentPage(
+      page => Math.max(page - 1, 1)
+    );
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(
+      page =>
+        Math.min(page + 1, totalPages)
+    );
+  };
+
+  return (
+    <div className="container">
+
+      <div className="header">
+        <h1>
+          დოკუმენტები
+        </h1>
+
+        <p>
+          აირჩიე მომხმარებელი და მისი თანამდებობა
+        </p>
+      </div>
+
+      <div className="card">
+
+        <UserSelect
+          users={users}
+          value={selectedUserId}
+          onChange={handleUserChange}
+        />
+
+        <br />
+
+        <AppointmentSelect
+          appointments={appointments}
+          value={selectedAppointmentId}
+          disabled={!selectedUserId}
+          onChange={
+            handleAppointmentChange
+          }
+        />
+
+      </div>
+
+      {loading && (
+        <div className="message">
+          იტვირთება...
+        </div>
+      )}
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
+
+      {documents.length > 0 && (
+        <div className="documents-section">
+
+          <div className="documents-header">
+
+            <h2>
+              დოკუმენტები
+            </h2>
+
+            <span>
+              სულ: {documents.length}
+            </span>
+
+          </div>
+
+          <DocumentsTable
+            documents={pagedDocuments}
+          />
+
+          <div className="pagination">
+
+            <button
+              onClick={handlePreviousPage}
+              disabled={currentPage === 1}
+            >
+              წინა
+            </button>
+
+            <span>
+              გვერდი {currentPage} / {totalPages}
+            </span>
+
+            <button
+              onClick={handleNextPage}
+              disabled={
+                currentPage === totalPages
+              }
+            >
+              შემდეგი
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+}
