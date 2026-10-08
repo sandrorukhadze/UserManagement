@@ -1,41 +1,16 @@
-============================================================
-DAPPER - PACKAGE INSTALL
-============================================================
+-- 1. User-ის დანიშვნების / როლების წამოღება
+USE [eMembership];
+GO
 
-dotnet add src/eMembership.Infrastructure package Dapper
-
-
-============================================================
-თუ უკვე იმყოფები Infrastructure პროექტის folder-ში:
-============================================================
-
-cd C:\Users\srukhadze\source\repos\eMembership\src\eMembership.Infrastructure
-
-dotnet add package Dapper
+EXEC dbo.GetUserAppointments
+    @UserID = '77CBA770-018B-4684-808B-EF3409385ED4';
+GO
 
 
-============================================================
-PACKAGE CHECK
-============================================================
+-- 2. კონკრეტული UserAppointment-ის დოკუმენტების წამოღება
+USE [eDocument];
+GO
 
-dotnet list package
-
-
-============================================================
-BUILD
-============================================================
-
-cd C:\Users\srukhadze\source\repos\eMembership
-
-dotnet clean
-
-dotnet restore
-
-dotnet build
-
-
-============================================================
-RUN API
-============================================================
-
-dotnet run --project src\eMembership.Api
+EXEC dbo.GetUserDocuments
+    @UserAppointmentID = 'აქ-ჩასვი-UserAppointmentID';
+GO
