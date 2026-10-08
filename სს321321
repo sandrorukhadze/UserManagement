@@ -1,130 +1,715 @@
--- 1) User-ის დანიშვნები / როლები
+============================================================
+1. SQL - eMembership - GetUserAppointments.sql
+============================================================
+
 USE [eMembership];
 GO
 
-DECLARE @UserID UNIQUEIDENTIFIER =
-    '77CBA770-018B-4684-808B-EF3409385ED4';
+CREATE OR ALTER PROCEDURE dbo.GetUserAppointments
+    @UserID UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-SELECT
-    ua.ID AS UserAppointmentID,
-    ua.UserID,
-    r.ID AS RoleID,
-    r.Name AS RoleName
-FROM orgs.UserAppointments AS ua
-INNER JOIN orgs.UserAppointmentsInRoles AS uar
-    ON uar.UserAppointmentID = ua.ID
-INNER JOIN users.Roles AS r
-    ON r.ID = uar.RoleID
-WHERE ua.UserID = @UserID
-  AND ua.IsActive = 1
-  AND ua.BeginDate <= CONVERT(date, GETDATE())
-  AND (
-        ua.FinishDate IS NULL
-        OR ua.FinishDate >= CONVERT(date, GETDATE())
-      )
-ORDER BY r.Name;
+    SELECT
+        ua.ID AS UserAppointmentID,
+        ua.UserID,
+        r.ID AS RoleID,
+        r.Name AS RoleName
+    FROM orgs.UserAppointments AS ua
+    INNER JOIN orgs.UserAppointmentsInRoles AS uar
+        ON uar.UserAppointmentID = ua.ID
+    INNER JOIN users.Roles AS r
+        ON r.ID = uar.RoleID
+    WHERE ua.UserID = @UserID
+      AND ua.IsActive = 1
+      AND ua.BeginDate <= CONVERT(date, GETDATE())
+      AND (
+            ua.FinishDate IS NULL
+            OR ua.FinishDate >= CONVERT(date, GETDATE())
+          )
+    ORDER BY r.Name;
+END;
+GO
 
--- 2) არჩეული UserAppointment-ის დოკუმენტები
+
+============================================================
+2. SQL - eDocument - GetUserDocuments.sql
+============================================================
+
 USE [eDocument];
 GO
 
-DECLARE @UserAppointmentID UNIQUEIDENTIFIER =
-    'აქ-ჩასვი-UserAppointmentID';
+CREATE OR ALTER PROCEDURE dbo.GetUserDocuments
+    @UserAppointmentID UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-SELECT TOP (100)
-    d.ID AS DocumentID,
-    d.DocumentNumber AS DocumentNumber,
-    d.DocumentTypeID AS DocumentTypeID,
-    cid.ClientID AS ClientID,
-    creator.FullName AS CreatorFullName,
-    baseDoc.DocumentNumber AS BaseDocumentNumber,
-    dd.Contents AS Contents,
-    dd.PhoneNumber AS PhoneNumber,
-    dd.BranchName AS BranchName,
-    d.Notes AS Notes,
+    SELECT TOP (100)
+        d.ID AS DocumentID,
+        d.DocumentNumber AS DocumentNumber,
+        d.DocumentTypeID AS DocumentTypeID,
+        cid.ClientID AS ClientID,
+        creator.FullName AS CreatorFullName,
+        baseDoc.DocumentNumber AS BaseDocumentNumber,
+        dd.Contents AS Contents,
+        dd.PhoneNumber AS PhoneNumber,
+        dd.BranchName AS BranchName,
+        d.Notes AS Notes,
 
-    CASE d.IsSent
-        WHEN 1 THEN N'კი'
-        WHEN 0 THEN N'არა'
-        ELSE N'უცნობია'
-    END AS IsSentText,
+        CASE d.IsSent
+            WHEN 1 THEN N'კი'
+            WHEN 0 THEN N'არა'
+            ELSE N'უცნობია'
+        END AS IsSentText,
 
-    d.CreateDate AS CreateDate,
-    received.RegistrationDate AS RegistrationDate,
-    sender.FullName AS SenderFullName,
+        d.CreateDate AS CreateDate,
+        received.RegistrationDate AS RegistrationDate,
+        sender.FullName AS SenderFullName,
 
-    CASE received.IsReaded
-        WHEN 1 THEN N'კი'
-        WHEN 0 THEN N'არა'
-        ELSE N'უცნობია'
-    END AS IsReadText,
+        CASE received.IsReaded
+            WHEN 1 THEN N'კი'
+            WHEN 0 THEN N'არა'
+            ELSE N'უცნობია'
+        END AS IsReadText,
 
-    lastMovement.MovementTypeID AS LastMovementTypeID,
-    lastMovement.CreateDate AS LastMovementDate,
-    lastMovement.Comment AS LastMovementComment,
+        lastMovement.MovementTypeID AS LastMovementTypeID,
+        lastMovement.CreateDate AS LastMovementDate,
+        lastMovement.Comment AS LastMovementComment,
 
-    CASE
-        WHEN EXISTS (
-            SELECT 1
-            FROM dbo.DocumentElVersions AS ev
-            WHERE ev.DocumentID = d.ID
-              AND ev.IsActive = 1
-        )
-        THEN N'კი'
-        ELSE N'არა'
-    END AS HasAttachmentText
+        CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM dbo.DocumentElVersions AS ev
+                WHERE ev.DocumentID = d.ID
+                  AND ev.IsActive = 1
+            )
+            THEN N'კი'
+            ELSE N'არა'
+        END AS HasAttachmentText
 
-FROM dbo.Documents AS d
+    FROM dbo.Documents AS d
 
-CROSS APPLY (
-    SELECT TOP (1)
-        m.RegistrationDate,
-        m.FromID,
-        m.IsReaded
-    FROM dbo.Movements AS m
-    WHERE m.ThingID = d.ID
-      AND m.ToID = @UserAppointmentID
-      AND m.IsActive = 1
-      AND m.Canceled = 0
+    CROSS APPLY (
+        SELECT TOP (1)
+            m.RegistrationDate,
+            m.FromID,
+            m.IsReaded
+        FROM dbo.Movements AS m
+        WHERE m.ThingID = d.ID
+          AND m.ToID = @UserAppointmentID
+          AND m.IsActive = 1
+          AND m.Canceled = 0
+        ORDER BY
+            m.CreateDate DESC,
+            m.ID DESC
+    ) AS received
+
+    OUTER APPLY (
+        SELECT TOP (1)
+            m.MovementTypeID,
+            m.CreateDate,
+            m.Comment
+        FROM dbo.Movements AS m
+        WHERE m.ThingID = d.ID
+          AND m.IsActive = 1
+        ORDER BY
+            m.CreateDate DESC,
+            m.ID DESC
+    ) AS lastMovement
+
+    LEFT JOIN dbo.DocumentDetails AS dd
+        ON dd.ID = d.ID
+
+    LEFT JOIN dbo.Documents AS baseDoc
+        ON baseDoc.ID = d.BaseDocumentID
+
+    LEFT JOIN eMembership.users.Users AS creator
+        ON creator.ID = d.CreatedBy
+
+    LEFT JOIN dbo.ClientsInDocuments AS cid
+        ON cid.DocumentID = d.ID
+       AND cid.IsActive = 1
+
+    LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
+        ON senderAppointment.ID = received.FromID
+
+    LEFT JOIN eMembership.users.Users AS sender
+        ON sender.ID = senderAppointment.UserID
+
+    WHERE d.IsActive = 1
+
     ORDER BY
-        m.CreateDate DESC,
-        m.ID DESC
-) AS received
+        d.CreateDate DESC,
+        d.ID DESC;
+END;
+GO
 
-OUTER APPLY (
-    SELECT TOP (1)
-        m.MovementTypeID,
-        m.CreateDate,
-        m.Comment
-    FROM dbo.Movements AS m
-    WHERE m.ThingID = d.ID
-      AND m.IsActive = 1
-    ORDER BY
-        m.CreateDate DESC,
-        m.ID DESC
-) AS lastMovement
 
-LEFT JOIN dbo.DocumentDetails AS dd
-    ON dd.ID = d.ID
+============================================================
+3. src/eMembership.Application/Appointments/UserAppointmentDto.cs
+============================================================
 
-LEFT JOIN dbo.Documents AS baseDoc
-    ON baseDoc.ID = d.BaseDocumentID
+namespace eMembership.Application.Appointments;
 
-LEFT JOIN eMembership.users.Users AS creator
-    ON creator.ID = d.CreatedBy
+public sealed class UserAppointmentDto
+{
+    public Guid UserAppointmentID { get; set; }
 
-LEFT JOIN dbo.ClientsInDocuments AS cid
-    ON cid.DocumentID = d.ID
-   AND cid.IsActive = 1
+    public Guid UserID { get; set; }
 
-LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
-    ON senderAppointment.ID = received.FromID
+    public Guid RoleID { get; set; }
 
-LEFT JOIN eMembership.users.Users AS sender
-    ON sender.ID = senderAppointment.UserID
+    public string RoleName { get; set; } = string.Empty;
+}
 
-WHERE d.IsActive = 1
 
-ORDER BY
-    d.CreateDate DESC,
-    d.ID DESC;
+============================================================
+4. src/eMembership.Application/Abstractions/IUserAppointmentRepository.cs
+============================================================
+
+using eMembership.Application.Appointments;
+
+namespace eMembership.Application.Abstractions;
+
+public interface IUserAppointmentRepository
+{
+    Task<IReadOnlyList<UserAppointmentDto>> GetByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+}
+
+
+============================================================
+5. src/eMembership.Infrastructure/Repositories/UserAppointmentRepository.cs
+============================================================
+
+using System.Data;
+using Dapper;
+using eMembership.Application.Abstractions;
+using eMembership.Application.Appointments;
+using eMembership.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace eMembership.Infrastructure.Repositories;
+
+public sealed class UserAppointmentRepository
+    : IUserAppointmentRepository
+{
+    private readonly MembershipDbContext _dbContext;
+
+    public UserAppointmentRepository(
+        MembershipDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IReadOnlyList<UserAppointmentDto>> GetByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection =
+            _dbContext.Database.GetDbConnection();
+
+        var command = new CommandDefinition(
+            commandText: "dbo.GetUserAppointments",
+            parameters: new
+            {
+                UserID = userId
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        var result =
+            await connection.QueryAsync<UserAppointmentDto>(
+                command);
+
+        return result.ToList();
+    }
+}
+
+
+============================================================
+6. src/eMembership.Application/Abstractions/IDocumentRepository.cs
+============================================================
+
+using eMembership.Application.Documents;
+
+namespace eMembership.Application.Abstractions;
+
+public interface IDocumentRepository
+{
+    Task<IReadOnlyList<UserDocumentDto>> GetByAppointmentIdAsync(
+        Guid userAppointmentId,
+        CancellationToken cancellationToken = default);
+}
+
+
+============================================================
+7. src/eMembership.Infrastructure/Repositories/DocumentRepository.cs
+============================================================
+
+using System.Data;
+using Dapper;
+using eMembership.Application.Abstractions;
+using eMembership.Application.Documents;
+using eMembership.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace eMembership.Infrastructure.Repositories;
+
+public sealed class DocumentRepository
+    : IDocumentRepository
+{
+    private readonly DocumentDbContext _dbContext;
+
+    public DocumentRepository(
+        DocumentDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<IReadOnlyList<UserDocumentDto>> GetByAppointmentIdAsync(
+        Guid userAppointmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection =
+            _dbContext.Database.GetDbConnection();
+
+        var command = new CommandDefinition(
+            commandText: "dbo.GetUserDocuments",
+            parameters: new
+            {
+                UserAppointmentID = userAppointmentId
+            },
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: cancellationToken);
+
+        var result =
+            await connection.QueryAsync<UserDocumentDto>(
+                command);
+
+        return result.ToList();
+    }
+}
+
+
+============================================================
+8. src/eMembership.Api/Controllers/UserAppointmentsController.cs
+============================================================
+
+using eMembership.Application.Abstractions;
+using Microsoft.AspNetCore.Mvc;
+
+namespace eMembership.Api.Controllers;
+
+[ApiController]
+[Route("api/users")]
+public sealed class UserAppointmentsController
+    : ControllerBase
+{
+    private readonly IUserAppointmentRepository _repository;
+
+    public UserAppointmentsController(
+        IUserAppointmentRepository repository)
+    {
+        _repository = repository;
+    }
+
+    [HttpGet("{userId:guid}/appointments")]
+    public async Task<IActionResult> GetAppointments(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var result =
+            await _repository.GetByUserIdAsync(
+                userId,
+                cancellationToken);
+
+        return Ok(result);
+    }
+}
+
+
+============================================================
+9. src/eMembership.Api/Controllers/DocumentsController.cs
+============================================================
+
+using eMembership.Application.Abstractions;
+using Microsoft.AspNetCore.Mvc;
+
+namespace eMembership.Api.Controllers;
+
+[ApiController]
+[Route("api/documents")]
+public sealed class DocumentsController
+    : ControllerBase
+{
+    private readonly IDocumentRepository _documentRepository;
+
+    public DocumentsController(
+        IDocumentRepository documentRepository)
+    {
+        _documentRepository = documentRepository;
+    }
+
+    [HttpGet("appointment/{userAppointmentId:guid}")]
+    public async Task<IActionResult> GetDocuments(
+        Guid userAppointmentId,
+        CancellationToken cancellationToken)
+    {
+        var documents =
+            await _documentRepository.GetByAppointmentIdAsync(
+                userAppointmentId,
+                cancellationToken);
+
+        return Ok(documents);
+    }
+}
+
+
+============================================================
+10. Program.cs - დაამატე DI-ში
+============================================================
+
+builder.Services.AddScoped<
+    IUserAppointmentRepository,
+    UserAppointmentRepository>();
+
+builder.Services.AddScoped<
+    IDocumentRepository,
+    DocumentRepository>();
+
+
+============================================================
+11. FRONTEND - src/types/UserAppointment.ts
+============================================================
+
+export type UserAppointment = {
+  userAppointmentID: string;
+  userID: string;
+  roleID: string;
+  roleName: string;
+};
+
+
+============================================================
+12. FRONTEND - src/api/appointmentsApi.ts
+============================================================
+
+import type { UserAppointment } from "../types/UserAppointment";
+
+const API_URL = "http://localhost:5273";
+
+export async function getUserAppointments(
+  userId: string
+): Promise<UserAppointment[]> {
+  const response = await fetch(
+    `${API_URL}/api/users/${userId}/appointments`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Backend error: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+
+============================================================
+13. FRONTEND - src/api/documentsApi.ts
+============================================================
+
+import type { DocumentItem } from "../types/DocumentItem";
+
+const API_URL = "http://localhost:5273";
+
+export async function getDocumentsByAppointment(
+  userAppointmentId: string
+): Promise<DocumentItem[]> {
+  const response = await fetch(
+    `${API_URL}/api/documents/appointment/${userAppointmentId}`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Backend error: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+
+============================================================
+14. FRONTEND - src/components/AppointmentSelect.tsx
+============================================================
+
+import type { UserAppointment } from "../types/UserAppointment";
+
+type Props = {
+  appointments: UserAppointment[];
+  value: string;
+  disabled?: boolean;
+  onChange: (userAppointmentId: string) => void;
+};
+
+export default function AppointmentSelect({
+  appointments,
+  value,
+  disabled,
+  onChange,
+}: Props) {
+  return (
+    <div className="user-select">
+
+      <label>
+        თანამდებობა / როლი
+      </label>
+
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+      >
+        <option value="">
+          -- აირჩიე თანამდებობა --
+        </option>
+
+        {appointments.map((appointment) => (
+          <option
+            key={appointment.userAppointmentID}
+            value={appointment.userAppointmentID}
+          >
+            {appointment.roleName}
+          </option>
+        ))}
+      </select>
+
+    </div>
+  );
+}
+
+
+============================================================
+15. FRONTEND - src/pages/DocumentsPage.tsx
+============================================================
+
+import { useState } from "react";
+
+import UserSelect from "../components/UserSelect";
+import AppointmentSelect from "../components/AppointmentSelect";
+import DocumentsTable from "../components/DocumentsTable";
+
+import { users } from "../data/users";
+
+import {
+  getUserAppointments,
+} from "../api/appointmentsApi";
+
+import {
+  getDocumentsByAppointment,
+} from "../api/documentsApi";
+
+import type {
+  UserAppointment,
+} from "../types/UserAppointment";
+
+import type {
+  DocumentItem,
+} from "../types/DocumentItem";
+
+export default function DocumentsPage() {
+  const [
+    selectedUserId,
+    setSelectedUserId,
+  ] = useState("");
+
+  const [
+    appointments,
+    setAppointments,
+  ] = useState<UserAppointment[]>([]);
+
+  const [
+    selectedAppointmentId,
+    setSelectedAppointmentId,
+  ] = useState("");
+
+  const [
+    documents,
+    setDocuments,
+  ] = useState<DocumentItem[]>([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const handleUserChange =
+    async (userId: string) => {
+      setSelectedUserId(userId);
+      setAppointments([]);
+      setSelectedAppointmentId("");
+      setDocuments([]);
+      setError("");
+
+      if (!userId) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const data =
+          await getUserAppointments(
+            userId
+          );
+
+        setAppointments(data);
+      }
+      catch (error) {
+        console.error(error);
+
+        setError(
+          "თანამდებობების წამოღება ვერ მოხერხდა."
+        );
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+  const handleAppointmentChange =
+    async (
+      userAppointmentId: string
+    ) => {
+      setSelectedAppointmentId(
+        userAppointmentId
+      );
+
+      setDocuments([]);
+      setError("");
+
+      if (!userAppointmentId) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        const data =
+          await getDocumentsByAppointment(
+            userAppointmentId
+          );
+
+        setDocuments(data);
+      }
+      catch (error) {
+        console.error(error);
+
+        setError(
+          "დოკუმენტების წამოღება ვერ მოხერხდა."
+        );
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+
+  return (
+    <div className="container">
+
+      <div className="header">
+
+        <h1>
+          დოკუმენტები
+        </h1>
+
+        <p>
+          აირჩიე მომხმარებელი და მისი თანამდებობა
+        </p>
+
+      </div>
+
+      <div className="card">
+
+        <UserSelect
+          users={users}
+          value={selectedUserId}
+          onChange={handleUserChange}
+        />
+
+        <br />
+
+        <AppointmentSelect
+          appointments={appointments}
+          value={selectedAppointmentId}
+          disabled={!selectedUserId}
+          onChange={handleAppointmentChange}
+        />
+
+      </div>
+
+      {loading && (
+        <div className="message">
+          იტვირთება...
+        </div>
+      )}
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
+
+      {documents.length > 0 && (
+        <div className="documents-section">
+
+          <div className="documents-header">
+
+            <h2>
+              დოკუმენტები
+            </h2>
+
+            <span>
+              რაოდენობა: {documents.length}
+            </span>
+
+          </div>
+
+          <DocumentsTable
+            documents={documents}
+          />
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+============================================================
+16. Dapper package command
+============================================================
+
+dotnet add src/eMembership.Infrastructure package Dapper
+
+
+============================================================
+17. Build / Run
+============================================================
+
+dotnet clean
+dotnet build
+dotnet run
