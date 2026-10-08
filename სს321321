@@ -1,5 +1,5 @@
 ============================================================
-1. SQL - eMembership - GetUserAppointments.sql
+FILE: sql/eMembership/GetUserAppointments.sql
 ============================================================
 
 USE [eMembership];
@@ -34,7 +34,37 @@ GO
 
 
 ============================================================
-2. SQL - eDocument - GetUserDocuments.sql
+FILE: sql/eMembership/Test_GetUserAppointments.sql
+============================================================
+
+USE [eMembership];
+GO
+
+DECLARE @UserID UNIQUEIDENTIFIER =
+    '77CBA770-018B-4684-808B-EF3409385ED4';
+
+SELECT
+    ua.ID AS UserAppointmentID,
+    ua.UserID,
+    r.ID AS RoleID,
+    r.Name AS RoleName
+FROM orgs.UserAppointments AS ua
+INNER JOIN orgs.UserAppointmentsInRoles AS uar
+    ON uar.UserAppointmentID = ua.ID
+INNER JOIN users.Roles AS r
+    ON r.ID = uar.RoleID
+WHERE ua.UserID = @UserID
+  AND ua.IsActive = 1
+  AND ua.BeginDate <= CONVERT(date, GETDATE())
+  AND (
+        ua.FinishDate IS NULL
+        OR ua.FinishDate >= CONVERT(date, GETDATE())
+      )
+ORDER BY r.Name;
+
+
+============================================================
+FILE: sql/eDocument/GetUserDocuments.sql
 ============================================================
 
 USE [eDocument];
@@ -148,7 +178,116 @@ GO
 
 
 ============================================================
-3. src/eMembership.Application/Appointments/UserAppointmentDto.cs
+FILE: sql/eDocument/Test_GetUserDocuments.sql
+============================================================
+
+USE [eDocument];
+GO
+
+DECLARE @UserAppointmentID UNIQUEIDENTIFIER =
+    'აქ-ჩასვი-UserAppointmentID';
+
+SELECT TOP (100)
+    d.ID AS DocumentID,
+    d.DocumentNumber AS DocumentNumber,
+    d.DocumentTypeID AS DocumentTypeID,
+    cid.ClientID AS ClientID,
+    creator.FullName AS CreatorFullName,
+    baseDoc.DocumentNumber AS BaseDocumentNumber,
+    dd.Contents AS Contents,
+    dd.PhoneNumber AS PhoneNumber,
+    dd.BranchName AS BranchName,
+    d.Notes AS Notes,
+
+    CASE d.IsSent
+        WHEN 1 THEN N'კი'
+        WHEN 0 THEN N'არა'
+        ELSE N'უცნობია'
+    END AS IsSentText,
+
+    d.CreateDate AS CreateDate,
+    received.RegistrationDate AS RegistrationDate,
+    sender.FullName AS SenderFullName,
+
+    CASE received.IsReaded
+        WHEN 1 THEN N'კი'
+        WHEN 0 THEN N'არა'
+        ELSE N'უცნობია'
+    END AS IsReadText,
+
+    lastMovement.MovementTypeID AS LastMovementTypeID,
+    lastMovement.CreateDate AS LastMovementDate,
+    lastMovement.Comment AS LastMovementComment,
+
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM dbo.DocumentElVersions AS ev
+            WHERE ev.DocumentID = d.ID
+              AND ev.IsActive = 1
+        )
+        THEN N'კი'
+        ELSE N'არა'
+    END AS HasAttachmentText
+
+FROM dbo.Documents AS d
+
+CROSS APPLY (
+    SELECT TOP (1)
+        m.RegistrationDate,
+        m.FromID,
+        m.IsReaded
+    FROM dbo.Movements AS m
+    WHERE m.ThingID = d.ID
+      AND m.ToID = @UserAppointmentID
+      AND m.IsActive = 1
+      AND m.Canceled = 0
+    ORDER BY
+        m.CreateDate DESC,
+        m.ID DESC
+) AS received
+
+OUTER APPLY (
+    SELECT TOP (1)
+        m.MovementTypeID,
+        m.CreateDate,
+        m.Comment
+    FROM dbo.Movements AS m
+    WHERE m.ThingID = d.ID
+      AND m.IsActive = 1
+    ORDER BY
+        m.CreateDate DESC,
+        m.ID DESC
+) AS lastMovement
+
+LEFT JOIN dbo.DocumentDetails AS dd
+    ON dd.ID = d.ID
+
+LEFT JOIN dbo.Documents AS baseDoc
+    ON baseDoc.ID = d.BaseDocumentID
+
+LEFT JOIN eMembership.users.Users AS creator
+    ON creator.ID = d.CreatedBy
+
+LEFT JOIN dbo.ClientsInDocuments AS cid
+    ON cid.DocumentID = d.ID
+   AND cid.IsActive = 1
+
+LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
+    ON senderAppointment.ID = received.FromID
+
+LEFT JOIN eMembership.users.Users AS sender
+    ON sender.ID = senderAppointment.UserID
+
+WHERE d.IsActive = 1
+
+ORDER BY
+    d.CreateDate DESC,
+    d.ID DESC;
+
+
+============================================================
+FILE: src/eMembership.Application/Appointments/UserAppointmentDto.cs
 ============================================================
 
 namespace eMembership.Application.Appointments;
@@ -166,7 +305,55 @@ public sealed class UserAppointmentDto
 
 
 ============================================================
-4. src/eMembership.Application/Abstractions/IUserAppointmentRepository.cs
+FILE: src/eMembership.Application/Documents/UserDocumentDto.cs
+============================================================
+
+namespace eMembership.Application.Documents;
+
+public sealed class UserDocumentDto
+{
+    public Guid DocumentID { get; set; }
+
+    public string? DocumentNumber { get; set; }
+
+    public Guid? DocumentTypeID { get; set; }
+
+    public Guid? ClientID { get; set; }
+
+    public string? CreatorFullName { get; set; }
+
+    public string? BaseDocumentNumber { get; set; }
+
+    public string? Contents { get; set; }
+
+    public string? PhoneNumber { get; set; }
+
+    public string? BranchName { get; set; }
+
+    public string? Notes { get; set; }
+
+    public string? IsSentText { get; set; }
+
+    public DateTime? CreateDate { get; set; }
+
+    public DateTime? RegistrationDate { get; set; }
+
+    public string? SenderFullName { get; set; }
+
+    public string? IsReadText { get; set; }
+
+    public Guid? LastMovementTypeID { get; set; }
+
+    public DateTime? LastMovementDate { get; set; }
+
+    public string? LastMovementComment { get; set; }
+
+    public string? HasAttachmentText { get; set; }
+}
+
+
+============================================================
+FILE: src/eMembership.Application/Abstractions/IUserAppointmentRepository.cs
 ============================================================
 
 using eMembership.Application.Appointments;
@@ -182,7 +369,23 @@ public interface IUserAppointmentRepository
 
 
 ============================================================
-5. src/eMembership.Infrastructure/Repositories/UserAppointmentRepository.cs
+FILE: src/eMembership.Application/Abstractions/IDocumentRepository.cs
+============================================================
+
+using eMembership.Application.Documents;
+
+namespace eMembership.Application.Abstractions;
+
+public interface IDocumentRepository
+{
+    Task<IReadOnlyList<UserDocumentDto>> GetByAppointmentIdAsync(
+        Guid userAppointmentId,
+        CancellationToken cancellationToken = default);
+}
+
+
+============================================================
+FILE: src/eMembership.Infrastructure/Repositories/UserAppointmentRepository.cs
 ============================================================
 
 using System.Data;
@@ -231,23 +434,7 @@ public sealed class UserAppointmentRepository
 
 
 ============================================================
-6. src/eMembership.Application/Abstractions/IDocumentRepository.cs
-============================================================
-
-using eMembership.Application.Documents;
-
-namespace eMembership.Application.Abstractions;
-
-public interface IDocumentRepository
-{
-    Task<IReadOnlyList<UserDocumentDto>> GetByAppointmentIdAsync(
-        Guid userAppointmentId,
-        CancellationToken cancellationToken = default);
-}
-
-
-============================================================
-7. src/eMembership.Infrastructure/Repositories/DocumentRepository.cs
+FILE: src/eMembership.Infrastructure/Repositories/DocumentRepository.cs
 ============================================================
 
 using System.Data;
@@ -296,7 +483,25 @@ public sealed class DocumentRepository
 
 
 ============================================================
-8. src/eMembership.Api/Controllers/UserAppointmentsController.cs
+FILE: src/eMembership.Infrastructure/Persistence/DocumentDbContext.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+
+namespace eMembership.Infrastructure.Persistence;
+
+public sealed class DocumentDbContext : DbContext
+{
+    public DocumentDbContext(
+        DbContextOptions<DocumentDbContext> options)
+        : base(options)
+    {
+    }
+}
+
+
+============================================================
+FILE: src/eMembership.Api/Controllers/UserAppointmentsController.cs
 ============================================================
 
 using eMembership.Application.Abstractions;
@@ -333,7 +538,7 @@ public sealed class UserAppointmentsController
 
 
 ============================================================
-9. src/eMembership.Api/Controllers/DocumentsController.cs
+FILE: src/eMembership.Api/Controllers/DocumentsController.cs
 ============================================================
 
 using eMembership.Application.Abstractions;
@@ -370,8 +575,95 @@ public sealed class DocumentsController
 
 
 ============================================================
-10. Program.cs - დაამატე DI-ში
+FILE: src/eMembership.Api/appsettings.json
 ============================================================
+
+{
+  "ConnectionStrings": {
+    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=REAL_PASSWORD;TrustServerCertificate=True;",
+    "Document": "Server=10.0.33.33;Database=eDocument;User Id=sandro;Password=REAL_PASSWORD;TrustServerCertificate=True;"
+  },
+
+  "Jwt": {
+    "Key": "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MINIMUM_32_CHARACTERS",
+    "Issuer": "eMembership.Api",
+    "Audience": "eMembership.Client"
+  },
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+
+  "AllowedHosts": "*"
+}
+
+
+============================================================
+FILE: src/eMembership.Api/Program.cs
+============================================================
+
+using System.Text;
+using eMembership.Application.Abstractions;
+using eMembership.Application.Auth;
+using eMembership.Infrastructure.Authentication;
+using eMembership.Infrastructure.Persistence;
+using eMembership.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "ReactFrontend",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
+var membershipConnectionString =
+    builder.Configuration.GetConnectionString("Membership")
+    ?? throw new InvalidOperationException(
+        "Connection string 'Membership' was not found.");
+
+builder.Services.AddDbContext<MembershipDbContext>(
+    options =>
+    {
+        options.UseSqlServer(
+            membershipConnectionString);
+    });
+
+var documentConnectionString =
+    builder.Configuration.GetConnectionString("Document")
+    ?? throw new InvalidOperationException(
+        "Connection string 'Document' was not found.");
+
+builder.Services.AddDbContext<DocumentDbContext>(
+    options =>
+    {
+        options.UseSqlServer(
+            documentConnectionString);
+    });
+
+builder.Services.AddScoped<
+    IUserRepository,
+    UserRepository>();
 
 builder.Services.AddScoped<
     IUserAppointmentRepository,
@@ -381,9 +673,89 @@ builder.Services.AddScoped<
     IDocumentRepository,
     DocumentRepository>();
 
+builder.Services.AddScoped<
+    IPasswordVerifier,
+    LegacyMd5PasswordVerifier>();
+
+builder.Services.AddScoped<
+    IJwtTokenService,
+    JwtTokenService>();
+
+builder.Services.AddScoped<LoginService>();
+
+var jwtKey =
+    builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Key is not configured.");
+
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Issuer is not configured.");
+
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Audience is not configured.");
+
+builder.Services
+    .AddAuthentication(
+        JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
+
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(
+                            jwtKey)),
+
+                ClockSkew =
+                    TimeSpan.Zero
+            };
+    });
+
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors("ReactFrontend");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
 
 ============================================================
-11. FRONTEND - src/types/UserAppointment.ts
+FILE: FRONTEND/src/types/User.ts
+============================================================
+
+export type User = {
+  id: string;
+  fullName: string;
+};
+
+
+============================================================
+FILE: FRONTEND/src/types/UserAppointment.ts
 ============================================================
 
 export type UserAppointment = {
@@ -395,12 +767,61 @@ export type UserAppointment = {
 
 
 ============================================================
-12. FRONTEND - src/api/appointmentsApi.ts
+FILE: FRONTEND/src/types/DocumentItem.ts
 ============================================================
 
-import type { UserAppointment } from "../types/UserAppointment";
+export type DocumentItem = {
+  documentID: string;
+  documentNumber?: string | null;
+  documentTypeID?: string | null;
+  clientID?: string | null;
+  creatorFullName?: string | null;
+  baseDocumentNumber?: string | null;
+  contents?: string | null;
+  phoneNumber?: string | null;
+  branchName?: string | null;
+  notes?: string | null;
+  isSentText?: string | null;
+  createDate?: string | null;
+  registrationDate?: string | null;
+  senderFullName?: string | null;
+  isReadText?: string | null;
+  lastMovementTypeID?: string | null;
+  lastMovementDate?: string | null;
+  lastMovementComment?: string | null;
+  hasAttachmentText?: string | null;
+};
 
-const API_URL = "http://localhost:5273";
+
+============================================================
+FILE: FRONTEND/src/data/users.ts
+============================================================
+
+import type { User } from "../types/User";
+
+export const users: User[] = [
+  {
+    id: "77CBA770-018B-4684-808B-EF3409385ED4",
+    fullName: "ნინო კიკაბიძე",
+  },
+
+  {
+    id: "E91A26B0-A5C8-4C29-ADBC-000303DB38E2",
+    fullName: "ნინო ფირცხელანი",
+  },
+];
+
+
+============================================================
+FILE: FRONTEND/src/api/appointmentsApi.ts
+============================================================
+
+import type {
+  UserAppointment
+} from "../types/UserAppointment";
+
+const API_URL =
+  "http://localhost:5273";
 
 export async function getUserAppointments(
   userId: string
@@ -420,12 +841,15 @@ export async function getUserAppointments(
 
 
 ============================================================
-13. FRONTEND - src/api/documentsApi.ts
+FILE: FRONTEND/src/api/documentsApi.ts
 ============================================================
 
-import type { DocumentItem } from "../types/DocumentItem";
+import type {
+  DocumentItem
+} from "../types/DocumentItem";
 
-const API_URL = "http://localhost:5273";
+const API_URL =
+  "http://localhost:5273";
 
 export async function getDocumentsByAppointment(
   userAppointmentId: string
@@ -445,16 +869,69 @@ export async function getDocumentsByAppointment(
 
 
 ============================================================
-14. FRONTEND - src/components/AppointmentSelect.tsx
+FILE: FRONTEND/src/components/UserSelect.tsx
 ============================================================
 
-import type { UserAppointment } from "../types/UserAppointment";
+import type { User } from "../types/User";
+
+type Props = {
+  users: User[];
+  value: string;
+  onChange: (userId: string) => void;
+};
+
+export default function UserSelect({
+  users,
+  value,
+  onChange,
+}: Props) {
+  return (
+    <div className="user-select">
+
+      <label>
+        მომხმარებელი
+      </label>
+
+      <select
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+      >
+        <option value="">
+          -- აირჩიე მომხმარებელი --
+        </option>
+
+        {users.map((user) => (
+          <option
+            key={user.id}
+            value={user.id}
+          >
+            {user.fullName}
+          </option>
+        ))}
+      </select>
+
+    </div>
+  );
+}
+
+
+============================================================
+FILE: FRONTEND/src/components/AppointmentSelect.tsx
+============================================================
+
+import type {
+  UserAppointment
+} from "../types/UserAppointment";
 
 type Props = {
   appointments: UserAppointment[];
   value: string;
   disabled?: boolean;
-  onChange: (userAppointmentId: string) => void;
+  onChange: (
+    userAppointmentId: string
+  ) => void;
 };
 
 export default function AppointmentSelect({
@@ -481,14 +958,20 @@ export default function AppointmentSelect({
           -- აირჩიე თანამდებობა --
         </option>
 
-        {appointments.map((appointment) => (
-          <option
-            key={appointment.userAppointmentID}
-            value={appointment.userAppointmentID}
-          >
-            {appointment.roleName}
-          </option>
-        ))}
+        {appointments.map(
+          (appointment) => (
+            <option
+              key={
+                appointment.userAppointmentID
+              }
+              value={
+                appointment.userAppointmentID
+              }
+            >
+              {appointment.roleName}
+            </option>
+          )
+        )}
       </select>
 
     </div>
@@ -497,70 +980,192 @@ export default function AppointmentSelect({
 
 
 ============================================================
-15. FRONTEND - src/pages/DocumentsPage.tsx
+FILE: FRONTEND/src/components/DocumentsTable.tsx
+============================================================
+
+import type {
+  DocumentItem
+} from "../types/DocumentItem";
+
+type Props = {
+  documents: DocumentItem[];
+};
+
+export default function DocumentsTable({
+  documents,
+}: Props) {
+  return (
+    <div className="table-wrapper">
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>ნომერი</th>
+            <th>ავტორი</th>
+            <th>შინაარსი</th>
+            <th>ტელეფონი</th>
+            <th>ფილიალი</th>
+            <th>გამომგზავნი</th>
+            <th>გაგზავნილია</th>
+            <th>წაკითხულია</th>
+            <th>შექმნის თარიღი</th>
+            <th>მიღების თარიღი</th>
+            <th>დანართი</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {documents.map((doc) => (
+            <tr key={doc.documentID}>
+
+              <td>
+                {doc.documentNumber ?? "-"}
+              </td>
+
+              <td>
+                {doc.creatorFullName ?? "-"}
+              </td>
+
+              <td>
+                {doc.contents ?? "-"}
+              </td>
+
+              <td>
+                {doc.phoneNumber ?? "-"}
+              </td>
+
+              <td>
+                {doc.branchName ?? "-"}
+              </td>
+
+              <td>
+                {doc.senderFullName ?? "-"}
+              </td>
+
+              <td>
+                {doc.isSentText ?? "-"}
+              </td>
+
+              <td>
+                {doc.isReadText ?? "-"}
+              </td>
+
+              <td>
+                {formatDate(
+                  doc.createDate
+                )}
+              </td>
+
+              <td>
+                {formatDate(
+                  doc.registrationDate
+                )}
+              </td>
+
+              <td>
+                {doc.hasAttachmentText ?? "-"}
+              </td>
+
+            </tr>
+          ))}
+
+        </tbody>
+
+      </table>
+
+    </div>
+  );
+}
+
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Date(value)
+    .toLocaleString("ka-GE");
+}
+
+
+============================================================
+FILE: FRONTEND/src/pages/DocumentsPage.tsx
 ============================================================
 
 import { useState } from "react";
 
-import UserSelect from "../components/UserSelect";
-import AppointmentSelect from "../components/AppointmentSelect";
-import DocumentsTable from "../components/DocumentsTable";
+import UserSelect
+  from "../components/UserSelect";
 
-import { users } from "../data/users";
+import AppointmentSelect
+  from "../components/AppointmentSelect";
+
+import DocumentsTable
+  from "../components/DocumentsTable";
+
+import { users }
+  from "../data/users";
 
 import {
-  getUserAppointments,
+  getUserAppointments
 } from "../api/appointmentsApi";
 
 import {
-  getDocumentsByAppointment,
+  getDocumentsByAppointment
 } from "../api/documentsApi";
 
 import type {
-  UserAppointment,
+  UserAppointment
 } from "../types/UserAppointment";
 
 import type {
-  DocumentItem,
+  DocumentItem
 } from "../types/DocumentItem";
 
 export default function DocumentsPage() {
   const [
     selectedUserId,
-    setSelectedUserId,
+    setSelectedUserId
   ] = useState("");
 
   const [
     appointments,
-    setAppointments,
+    setAppointments
   ] = useState<UserAppointment[]>([]);
 
   const [
     selectedAppointmentId,
-    setSelectedAppointmentId,
+    setSelectedAppointmentId
   ] = useState("");
 
   const [
     documents,
-    setDocuments,
+    setDocuments
   ] = useState<DocumentItem[]>([]);
 
   const [
     loading,
-    setLoading,
+    setLoading
   ] = useState(false);
 
   const [
     error,
-    setError,
+    setError
   ] = useState("");
 
   const handleUserChange =
     async (userId: string) => {
       setSelectedUserId(userId);
+
       setAppointments([]);
+
       setSelectedAppointmentId("");
+
       setDocuments([]);
+
       setError("");
 
       if (!userId) {
@@ -598,6 +1203,7 @@ export default function DocumentsPage() {
       );
 
       setDocuments([]);
+
       setError("");
 
       if (!userAppointmentId) {
@@ -655,7 +1261,9 @@ export default function DocumentsPage() {
           appointments={appointments}
           value={selectedAppointmentId}
           disabled={!selectedUserId}
-          onChange={handleAppointmentChange}
+          onChange={
+            handleAppointmentChange
+          }
         />
 
       </div>
@@ -700,16 +1308,181 @@ export default function DocumentsPage() {
 
 
 ============================================================
-16. Dapper package command
+FILE: FRONTEND/src/App.tsx
+============================================================
+
+import DocumentsPage
+  from "./pages/DocumentsPage";
+
+function App() {
+  return (
+    <DocumentsPage />
+  );
+}
+
+export default App;
+
+
+============================================================
+FILE: FRONTEND/src/main.tsx
+============================================================
+
+import React
+  from "react";
+
+import ReactDOM
+  from "react-dom/client";
+
+import App
+  from "./App";
+
+import "./index.css";
+
+ReactDOM
+  .createRoot(
+    document.getElementById("root")!
+  )
+  .render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+
+
+============================================================
+FILE: FRONTEND/src/index.css
+============================================================
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f6f8;
+  color: #222;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+.container {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.header {
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  margin: 0 0 8px 0;
+}
+
+.header p {
+  margin: 0;
+  color: #666;
+}
+
+.card {
+  background: white;
+  padding: 24px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+
+.user-select {
+  margin-bottom: 12px;
+}
+
+.user-select label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.user-select select {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  font-size: 16px;
+}
+
+.message {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.error {
+  padding: 20px;
+  color: #b00020;
+  background: #ffe6e6;
+  border-radius: 8px;
+}
+
+.documents-section {
+  margin-top: 30px;
+}
+
+.documents-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  background: white;
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+}
+
+thead {
+  background: #eef1f5;
+}
+
+th,
+td {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+tbody tr:hover {
+  background: #fafafa;
+}
+
+
+============================================================
+COMMANDS
 ============================================================
 
 dotnet add src/eMembership.Infrastructure package Dapper
 
-
-============================================================
-17. Build / Run
-============================================================
-
 dotnet clean
+
 dotnet build
-dotnet run
+
+dotnet run --project src/eMembership.Api
+
+
+============================================================
+FRONTEND COMMANDS
+============================================================
+
+npm install
+
+npm run dev
