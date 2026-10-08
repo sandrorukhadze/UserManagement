@@ -1,293 +1,47 @@
-import { useMemo, useState } from "react";
-
-import UserSelect
-  from "../components/UserSelect";
-
-import AppointmentSelect
-  from "../components/AppointmentSelect";
-
-import DocumentsTable
-  from "../components/DocumentsTable";
-
-import { users }
-  from "../data/users";
-
-import {
-  getUserAppointments
-} from "../api/appointmentsApi";
-
-import {
-  getDocumentsByAppointment
-} from "../api/documentsApi";
-
-import type {
-  UserAppointment
-} from "../types/UserAppointment";
-
-import type {
-  DocumentItem
-} from "../types/DocumentItem";
-
-export default function DocumentsPage() {
-  const [
-    selectedUserId,
-    setSelectedUserId
-  ] = useState("");
-
-  const [
-    appointments,
-    setAppointments
-  ] = useState<UserAppointment[]>([]);
-
-  const [
-    selectedAppointmentId,
-    setSelectedAppointmentId
-  ] = useState("");
-
-  const [
-    documents,
-    setDocuments
-  ] = useState<DocumentItem[]>([]);
-
-  const [
-    loading,
-    setLoading
-  ] = useState(false);
-
-  const [
-    error,
-    setError
-  ] = useState("");
-
-  const [
-    currentPage,
-    setCurrentPage
-  ] = useState(1);
-
-  const pageSize = 10;
-
-  const totalPages =
-    Math.ceil(documents.length / pageSize);
-
-  const pagedDocuments = useMemo(() => {
-    const startIndex =
-      (currentPage - 1) * pageSize;
-
-    const endIndex =
-      startIndex + pageSize;
-
-    return documents.slice(
-      startIndex,
-      endIndex
-    );
-  }, [documents, currentPage]);
-
-  const handleUserChange =
-    async (userId: string) => {
-      setSelectedUserId(userId);
-      setAppointments([]);
-      setSelectedAppointmentId("");
-      setDocuments([]);
-      setCurrentPage(1);
-      setError("");
-
-      if (!userId) {
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        const data =
-          await getUserAppointments(
-            userId
-          );
-
-        setAppointments(data);
-      }
-      catch (error) {
-        console.error(error);
-
-        setError(
-          "თანამდებობების წამოღება ვერ მოხერხდა."
-        );
-      }
-      finally {
-        setLoading(false);
-      }
-    };
-
-  const handleAppointmentChange =
-    async (
-      userAppointmentId: string
-    ) => {
-      setSelectedAppointmentId(
-        userAppointmentId
-      );
-
-      setDocuments([]);
-      setCurrentPage(1);
-      setError("");
-
-      if (!userAppointmentId) {
-        return;
-      }
-
-      try {
-        setLoading(true);
-
-        const data =
-          await getDocumentsByAppointment(
-            userAppointmentId
-          );
-
-        setDocuments(data);
-      }
-      catch (error) {
-        console.error(error);
-
-        setError(
-          "დოკუმენტების წამოღება ვერ მოხერხდა."
-        );
-      }
-      finally {
-        setLoading(false);
-      }
-    };
-
-  const handlePreviousPage = () => {
-    setCurrentPage(
-      page => Math.max(page - 1, 1)
-    );
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(
-      page =>
-        Math.min(page + 1, totalPages)
-    );
-  };
-
-  return (
-    <div className="container">
-
-      <div className="header">
-        <h1>
-          დოკუმენტები
-        </h1>
-
-        <p>
-          აირჩიე მომხმარებელი და მისი თანამდებობა
-        </p>
-      </div>
-
-      <div className="card">
-
-        <UserSelect
-          users={users}
-          value={selectedUserId}
-          onChange={handleUserChange}
-        />
-
-        <br />
-
-        <AppointmentSelect
-          appointments={appointments}
-          value={selectedAppointmentId}
-          disabled={!selectedUserId}
-          onChange={
-            handleAppointmentChange
-          }
-        />
-
-      </div>
-
-      {loading && (
-        <div className="message">
-          იტვირთება...
-        </div>
-      )}
-
-      {error && (
-        <div className="error">
-          {error}
-        </div>
-      )}
-
-      {documents.length > 0 && (
-        <div className="documents-section">
-
-          <div className="documents-header">
-
-            <h2>
-              დოკუმენტები
-            </h2>
-
-            <span>
-              სულ: {documents.length}
-            </span>
-
-          </div>
-
-          <DocumentsTable
-            documents={pagedDocuments}
-          />
-
-          <div className="pagination">
-
-            <button
-              onClick={handlePreviousPage}
-              disabled={currentPage === 1}
-            >
-              წინა
-            </button>
-
-            <span>
-              გვერდი {currentPage} / {totalPages}
-            </span>
-
-            <button
-              onClick={handleNextPage}
-              disabled={
-                currentPage === totalPages
-              }
-            >
-              შემდეგი
-            </button>
-
-          </div>
-
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-}
-
-.pagination button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  background: #b9b9b9;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  font-weight: 600;
-}
+USE [eMembership];
+GO
+
+DECLARE @UserID UNIQUEIDENTIFIER =
+    'აქ-ჩასვი-UserID';
+
+;WITH Appointments AS
+(
+    SELECT
+        ua.ID AS UserAppointmentID,
+        ua.UserID,
+        ua.PositionID,
+        r.ID AS RoleID,
+        r.Name AS RoleName,
+
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY ua.PositionID
+            ORDER BY ua.BeginDate DESC, ua.ID
+        ) AS RowNumber
+
+    FROM orgs.UserAppointments AS ua
+
+    LEFT JOIN orgs.UserAppointmentsInRoles AS uar
+        ON uar.UserAppointmentID = ua.ID
+
+    LEFT JOIN users.Roles AS r
+        ON r.ID = uar.RoleID
+
+    WHERE ua.UserID = @UserID
+      AND ua.IsActive = 1
+      AND ua.BeginDate <= CONVERT(date, GETDATE())
+      AND (
+            ua.FinishDate IS NULL
+            OR ua.FinishDate >= CONVERT(date, GETDATE())
+          )
+)
+
+SELECT
+    UserAppointmentID,
+    UserID,
+    PositionID,
+    RoleID,
+    RoleName
+FROM Appointments
+WHERE RowNumber = 1
+ORDER BY RoleName;
