@@ -1,22 +1,130 @@
-{
-  "ConnectionStrings": {
-    "Membership": "Server=10.0.33.33;Database=eMembership;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;",
-    "Document": "Server=10.0.33.33;Database=eDocument;User Id=sandro;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
-  },
+-- 1) User-ის დანიშვნები / როლები
+USE [eMembership];
+GO
 
-  "Jwt": {
-    "Key": "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_KEY_MINIMUM_32_CHARACTERS",
-    "Issuer": "eMembership.Api",
-    "Audience": "eMembership.Client"
-  },
+DECLARE @UserID UNIQUEIDENTIFIER =
+    '77CBA770-018B-4684-808B-EF3409385ED4';
 
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning",
-      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
-    }
-  },
+SELECT
+    ua.ID AS UserAppointmentID,
+    ua.UserID,
+    r.ID AS RoleID,
+    r.Name AS RoleName
+FROM orgs.UserAppointments AS ua
+INNER JOIN orgs.UserAppointmentsInRoles AS uar
+    ON uar.UserAppointmentID = ua.ID
+INNER JOIN users.Roles AS r
+    ON r.ID = uar.RoleID
+WHERE ua.UserID = @UserID
+  AND ua.IsActive = 1
+  AND ua.BeginDate <= CONVERT(date, GETDATE())
+  AND (
+        ua.FinishDate IS NULL
+        OR ua.FinishDate >= CONVERT(date, GETDATE())
+      )
+ORDER BY r.Name;
 
-  "AllowedHosts": "*"
-}
+-- 2) არჩეული UserAppointment-ის დოკუმენტები
+USE [eDocument];
+GO
+
+DECLARE @UserAppointmentID UNIQUEIDENTIFIER =
+    'აქ-ჩასვი-UserAppointmentID';
+
+SELECT TOP (100)
+    d.ID AS DocumentID,
+    d.DocumentNumber AS DocumentNumber,
+    d.DocumentTypeID AS DocumentTypeID,
+    cid.ClientID AS ClientID,
+    creator.FullName AS CreatorFullName,
+    baseDoc.DocumentNumber AS BaseDocumentNumber,
+    dd.Contents AS Contents,
+    dd.PhoneNumber AS PhoneNumber,
+    dd.BranchName AS BranchName,
+    d.Notes AS Notes,
+
+    CASE d.IsSent
+        WHEN 1 THEN N'კი'
+        WHEN 0 THEN N'არა'
+        ELSE N'უცნობია'
+    END AS IsSentText,
+
+    d.CreateDate AS CreateDate,
+    received.RegistrationDate AS RegistrationDate,
+    sender.FullName AS SenderFullName,
+
+    CASE received.IsReaded
+        WHEN 1 THEN N'კი'
+        WHEN 0 THEN N'არა'
+        ELSE N'უცნობია'
+    END AS IsReadText,
+
+    lastMovement.MovementTypeID AS LastMovementTypeID,
+    lastMovement.CreateDate AS LastMovementDate,
+    lastMovement.Comment AS LastMovementComment,
+
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM dbo.DocumentElVersions AS ev
+            WHERE ev.DocumentID = d.ID
+              AND ev.IsActive = 1
+        )
+        THEN N'კი'
+        ELSE N'არა'
+    END AS HasAttachmentText
+
+FROM dbo.Documents AS d
+
+CROSS APPLY (
+    SELECT TOP (1)
+        m.RegistrationDate,
+        m.FromID,
+        m.IsReaded
+    FROM dbo.Movements AS m
+    WHERE m.ThingID = d.ID
+      AND m.ToID = @UserAppointmentID
+      AND m.IsActive = 1
+      AND m.Canceled = 0
+    ORDER BY
+        m.CreateDate DESC,
+        m.ID DESC
+) AS received
+
+OUTER APPLY (
+    SELECT TOP (1)
+        m.MovementTypeID,
+        m.CreateDate,
+        m.Comment
+    FROM dbo.Movements AS m
+    WHERE m.ThingID = d.ID
+      AND m.IsActive = 1
+    ORDER BY
+        m.CreateDate DESC,
+        m.ID DESC
+) AS lastMovement
+
+LEFT JOIN dbo.DocumentDetails AS dd
+    ON dd.ID = d.ID
+
+LEFT JOIN dbo.Documents AS baseDoc
+    ON baseDoc.ID = d.BaseDocumentID
+
+LEFT JOIN eMembership.users.Users AS creator
+    ON creator.ID = d.CreatedBy
+
+LEFT JOIN dbo.ClientsInDocuments AS cid
+    ON cid.DocumentID = d.ID
+   AND cid.IsActive = 1
+
+LEFT JOIN eMembership.orgs.UserAppointments AS senderAppointment
+    ON senderAppointment.ID = received.FromID
+
+LEFT JOIN eMembership.users.Users AS sender
+    ON sender.ID = senderAppointment.UserID
+
+WHERE d.IsActive = 1
+
+ORDER BY
+    d.CreateDate DESC,
+    d.ID DESC;
